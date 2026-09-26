@@ -1,0 +1,10 @@
+# Additive API constraints; Phase 2 scientific dependency lock remains unchanged.
+fastapi==0.141.1
+uvicorn==0.53.0
+starlette==1.7.0
+pydantic==2.13.5
+pydantic-core==2.46.5
+annotated-doc==0.0.5
+annotated-types==0.8.0
+typing-inspection==0.4.4
+click==8.5.0

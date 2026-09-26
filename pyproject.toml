@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gasopt"
+version = "0.1.0"
+description = "Reproducible Ethereum transaction scheduling with empirical CVaR"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["pyomo>=6.9,<7", "highspy>=1.10,<2", "numpy>=2,<3", "pandas>=2.2,<4", "pyarrow>=19,<30", "matplotlib>=3.9,<4"]
+
+[project.optional-dependencies]
+api = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1", "httpx>=0.28,<1"]
+dev = ["pytest>=8,<10", "jupyterlab>=4,<5", "nbconvert>=7,<8", "ipykernel>=6,<8"]
+
+[project.scripts]
+gasopt-validate = "gasopt.experiment:main"
+gasopt-empirical = "gasopt.empirical_study:main"
+gasopt-dune = "gasopt.data.dune:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

@@ -1,0 +1,23 @@
+# Inclusive UTC calendar dates. No rolling dates; do not tune on TEST results.
+train_start = "2025-01-01"
+train_end = "2025-12-31"
+test_start = "2026-01-01"
+test_end = "2026-03-31"
+alpha = 0.95
+lambda_grid = [0.0, 0.05, 0.10, 0.25, 0.50, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0]
+min_train_tail_count = 10.0
+max_missing_day_fraction = 0.05
+transaction_count = 30
+sample_seed = 20260923
+sample_per_day = 64
+gas_used_min = 21000
+gas_used_max = 1000000
+workload_trim_lower = 0.01
+workload_trim_upper = 0.99
+# Current official Ethereum Spellbook code passes through raw wei. Its docs
+# label gas_price as gwei. The fee identity in both queries audits this setting.
+dune_gas_price_unit = "wei"
+# Execution-window widths are BUSINESS ASSUMPTIONS, inclusive slot counts.
+urgent_window = 2
+standard_window = 4
+flexible_window = 8
