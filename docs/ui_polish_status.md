@@ -48,6 +48,6 @@ suite result of 137 passing tests belongs to the prior Phase 3.1 validation.
 ## Handoff
 
 Local production preview: `http://localhost:3000/model`.
-Commit, push and external deployment have not been performed in this UI pass.
-Deployment must include the local `data/processed/` and `outputs/empirical/`
-archives, as described in `platform.md`; these archives are gitignored.
+The UI pass was subsequently committed and pushed. Vercel preparation versions
+the verified runtime subset from `data/processed/` and `outputs/empirical/`, as
+described in `vercel.md`; raw exports and generated figures remain gitignored.

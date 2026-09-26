@@ -40,8 +40,9 @@ gradient/Hessian context, LP bounds, and a fully calculated Branch-and-Bound
 certificate. See the [Phase 3.1 completion report](docs/phase31_status.md).
 The final [UI polish report](docs/ui_polish_status.md) covers equation rendering,
 responsive layouts and browser checks on the production Docker build.
-Keep `data/processed/` and `outputs/empirical/` when copying the demo to another
-machine; these local archives are gitignored.
+For a Git-based cloud release, follow the [Vercel deployment guide](docs/vercel.md).
+The verified runtime snapshot needed by the API is versioned for Vercel. Raw
+Dune exports, figures and other generated research outputs remain gitignored.
 
 ## Phase 1 — mathematical validation
 

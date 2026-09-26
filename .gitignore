@@ -11,6 +11,10 @@ data/raw/*
 !data/raw/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
+!data/processed/ethereum_daily_slots.parquet
+!data/processed/ethereum_workload_observations.parquet
+!data/processed/metadata.json
+!data/processed/treasury_workload.parquet
 .env
 .env.*
 frontend/node_modules/
@@ -22,3 +26,10 @@ output/playwright/
 outputs/*
 !outputs/.gitkeep
 !outputs/README.md
+!outputs/empirical/
+outputs/empirical/*
+!outputs/empirical/*.csv
+!outputs/empirical/*.json
+!outputs/empirical/*.parquet
+!outputs/empirical/report.md
+.vercel/

@@ -18,9 +18,9 @@ both services should become healthy. Stop only this application with
 `docker compose down` (the local data files are retained).
 
 The first build downloads packages and images. Subsequent runtime is entirely
-offline once those dependencies are cached. Copy `data/processed/` and
-`outputs/empirical/` with the repository when moving the demo to another machine;
-they are local, gitignored scientific artifacts, not automatically downloaded.
+offline once those dependencies are cached. The verified processed files and
+root empirical tables needed by the application are versioned for Vercel. Raw
+Dune exports and generated figures remain local and gitignored.
 
 Development, terminal 1, from the repository root:
 

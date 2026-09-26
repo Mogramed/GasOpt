@@ -178,9 +178,10 @@ The Docker deployment is left running for the demonstration.
 
 ## 21. Known limitations
 
-This is a local single-study demonstrator. Internet is needed for the initial
-package/image build; runtime requests use only local services. Copy the
-gitignored processed data and empirical archive with the code when moving it.
+This is a single-study demonstrator. Internet is needed for the initial
+package/image build; runtime requests use only the bundled snapshot. The verified
+processed data and root empirical tables needed by the API are now versioned for
+Vercel; raw extracts and generated figures remain outside Git.
 Live results are kept in memory, not in a database. The initial JavaScript bundle
 triggers Vite's size advisory; this does not prevent the production build.
 

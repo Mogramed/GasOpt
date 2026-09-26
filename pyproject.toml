@@ -8,11 +8,12 @@ version = "0.1.0"
 description = "Reproducible Ethereum transaction scheduling with empirical CVaR"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["pyomo>=6.9,<7", "highspy>=1.10,<2", "numpy>=2,<3", "pandas>=2.2,<4", "pyarrow>=19,<30", "matplotlib>=3.9,<4"]
+dependencies = ["pyomo>=6.9,<7", "highspy>=1.10,<2", "numpy>=2,<3", "pandas>=2.2,<4", "pyarrow>=19,<30", "fastapi>=0.115,<1"]
 
 [project.optional-dependencies]
-api = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1", "httpx>=0.28,<1"]
-dev = ["pytest>=8,<10", "jupyterlab>=4,<5", "nbconvert>=7,<8", "ipykernel>=6,<8"]
+api = ["uvicorn>=0.34,<1", "httpx>=0.28,<1"]
+analysis = ["matplotlib>=3.9,<4"]
+dev = ["pytest>=8,<10", "jupyterlab>=4,<5", "nbconvert>=7,<8", "ipykernel>=6,<8", "matplotlib>=3.9,<4"]
 
 [project.scripts]
 gasopt-validate = "gasopt.experiment:main"

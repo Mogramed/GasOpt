@@ -242,8 +242,9 @@ displayed schedule comparison uses the **prespecified maximum lambda**, not a
 lambda chosen by TEST performance. No PowerPoint is created.
 
 Archive raw extracts, sidecars, processed files and study outputs together for
-submission. Large data and generated figures are gitignored; code, templates,
-rendered default SQL and notebooks remain versionable.
+submission. Raw extracts and generated figures are gitignored. The small,
+verified runtime snapshot used by the Vercel application is versioned; code,
+templates, rendered default SQL and notebooks remain versionable.
 
 ## Remaining empirical limitations
 
