@@ -4,7 +4,7 @@ from copy import deepcopy
 from threading import Lock
 from time import perf_counter
 from dataclasses import asdict
-from gasopt.models import solve_deterministic, solve_stochastic
+from gasopt.api.highs_solver import solve_deterministic, solve_stochastic
 from gasopt.types import OptimizationConfig
 
 class TrainingOptimizer:

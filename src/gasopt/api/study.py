@@ -6,7 +6,7 @@ from math import isclose
 import numpy as np
 import pandas as pd
 from gasopt.config import load_config
-from gasopt.empirical_study import load_processed
+from gasopt.data.processed import load_processed
 from gasopt.data.empirical import build_workload, split_daily_slots, daily_scenarios
 from gasopt.data.dune import file_hash
 from gasopt.evaluation.metrics import scenario_costs_eth, mean_prices_gwei

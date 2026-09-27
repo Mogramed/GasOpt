@@ -1,5 +1,7 @@
 import json
 from pathlib import Path
+import subprocess
+import sys
 
 from fastapi.testclient import TestClient
 
@@ -7,6 +9,22 @@ from api.index import app
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_vercel_entrypoint_does_not_import_pyomo():
+    check = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; from api.index import app; "
+            "assert not any(name.startswith('pyomo') for name in sys.modules)",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert check.returncode == 0, check.stderr
 
 
 def test_vercel_entrypoint_loads_verified_study():
