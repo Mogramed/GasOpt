@@ -26,5 +26,10 @@ def test_vercel_config_builds_frontend_and_preserves_spa_routes():
     assert config["outputDirectory"] == "frontend/dist"
     assert config["devCommand"].startswith("npm --prefix frontend")
     assert config["functions"]["api/index.py"]["maxDuration"] == 60
-    routes = {rewrite["source"] for rewrite in config["rewrites"]}
+    rewrites = config["rewrites"]
+    assert rewrites[0] == {
+        "source": "/api/:path*",
+        "destination": "/api/index",
+    }
+    routes = {rewrite["source"] for rewrite in rewrites}
     assert {"/overview", "/model", "/optimizer", "/results", "/solver"} <= routes

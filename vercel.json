@@ -13,6 +13,7 @@
     }
   },
   "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/index" },
     { "source": "/overview", "destination": "/index.html" },
     { "source": "/data", "destination": "/index.html" },
     { "source": "/workload", "destination": "/index.html" },
