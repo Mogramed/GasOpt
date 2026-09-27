@@ -1,6 +1,7 @@
 """Read and verify the frozen processed dataset without importing solvers."""
 
 import json
+from hashlib import sha256
 from pathlib import Path
 
 import pandas as pd
@@ -8,6 +9,13 @@ import pandas as pd
 from gasopt.config import ExperimentConfig
 from gasopt.data.dune import file_hash
 from gasopt.data.empirical import read_extract
+
+
+def json_hash(path: Path) -> str:
+    """Hash JSON semantics, independently of indentation and platform newlines."""
+    value = json.loads(path.read_text(encoding="utf-8"))
+    canonical = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def load_processed(directory: Path, config: ExperimentConfig) -> tuple[pd.DataFrame, pd.DataFrame, dict]:

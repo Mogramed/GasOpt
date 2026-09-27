@@ -6,9 +6,8 @@ from math import isclose
 import numpy as np
 import pandas as pd
 from gasopt.config import load_config
-from gasopt.data.processed import load_processed
+from gasopt.data.processed import json_hash, load_processed
 from gasopt.data.empirical import build_workload, split_daily_slots, daily_scenarios
-from gasopt.data.dune import file_hash
 from gasopt.evaluation.metrics import scenario_costs_eth, mean_prices_gwei
 from gasopt.evaluation.out_of_sample import cost_summary, evaluate_schedules
 from gasopt.baselines import immediate_schedule
@@ -28,7 +27,8 @@ class Study:
         self.means = mean_prices_gwei(self.train)
         out = root / "outputs/empirical"
         self.archive_meta = json.loads((out / "study_metadata.json").read_text())
-        if self.archive_meta["processed_metadata_sha256"] != file_hash(root / "data/processed/metadata.json"):
+        processed_identity = json_hash(root / "data/processed/metadata.json")
+        if self.archive_meta["processed_metadata_sha256"] != processed_identity:
             raise ValueError("Archived study and processed data identities differ.")
         if self.archive_meta["config"] != json.loads(json.dumps(self.config.to_dict())):
             raise ValueError("Archived study/config mismatch.")
@@ -36,8 +36,9 @@ class Study:
         self.test_table = pd.read_csv(out / "test_metrics.csv")
         self.daily_test = pd.read_csv(out / "test_daily_costs.csv")
         self.schedules = {r.strategy: json.loads(r.schedule) for r in self.train_table.itertuples()}
-        self.dataset_id = sha256((file_hash(root / "data/processed/metadata.json") +
-                                 file_hash(out / "study_metadata.json")).encode()).hexdigest()[:16]
+        self.dataset_id = sha256(
+            (processed_identity + json_hash(out / "study_metadata.json")).encode()
+        ).hexdigest()[:16]
         self._audit_archive()
         self.optimizer = TrainingOptimizer(self.transactions, self.train, self.config, self.dataset_id)
 

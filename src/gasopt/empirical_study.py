@@ -16,6 +16,7 @@ from gasopt.config import ExperimentConfig, load_config
 from gasopt.data.dune import file_hash
 from gasopt.data.empirical import (build_workload, daily_scenarios, prepare_local_data,
                                    read_extract, split_daily_slots)
+from gasopt.data.processed import json_hash
 from gasopt.evaluation.metrics import scenario_costs_eth
 from gasopt.evaluation.out_of_sample import cost_summary, evaluate_schedules
 from gasopt.models import solve_deterministic, solve_stochastic
@@ -144,7 +145,7 @@ def run_study(config: ExperimentConfig, processed: Path, output: Path) -> dict:
               "test_tail_count": (1 - config.alpha) * study["test_count"],
               "test_role": "evaluation only; no lambda selection or refitting",
               "p95_method": "inverse empirical CDF", "std_ddof": 0,
-              "processed_metadata_sha256": file_hash(processed / "metadata.json"),
+              "processed_metadata_sha256": json_hash(processed / "metadata.json"),
               "environment": {"python": platform.python_version(), **{name: version(name) for name in
                               ("gasopt", "pyomo", "highspy", "numpy", "pandas", "pyarrow", "matplotlib")}},
               "schedules": study["fitted"].schedules}

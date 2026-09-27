@@ -6,9 +6,22 @@ import sys
 from fastapi.testclient import TestClient
 
 from api.index import app
+from gasopt.data.processed import json_hash
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_json_identity_is_platform_independent(tmp_path):
+    content = '{\n  "name": "GasOps",\n  "version": 1\n}\n'
+    lf = tmp_path / "lf.json"
+    crlf = tmp_path / "crlf.json"
+    lf.write_bytes(content.encode("utf-8"))
+    crlf.write_bytes(content.replace("\n", "\r\n").encode("utf-8"))
+    assert json_hash(lf) == json_hash(crlf)
+    assert json_hash(ROOT / "data/processed/metadata.json") == json.loads(
+        (ROOT / "outputs/empirical/study_metadata.json").read_text(encoding="utf-8")
+    )["processed_metadata_sha256"]
 
 
 def test_vercel_entrypoint_does_not_import_pyomo():
@@ -34,7 +47,7 @@ def test_vercel_entrypoint_loads_verified_study():
     assert response.json() == {
         "status": "ok",
         "product": "GasOps",
-        "dataset_id": "8fe7073798e19d6e",
+        "dataset_id": "527fa244aeb073b8",
         "offline": True,
     }
 
