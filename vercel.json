@@ -3,6 +3,7 @@
   "framework": "vite",
   "installCommand": "npm --prefix frontend ci --legacy-peer-deps",
   "buildCommand": "npm --prefix frontend run build",
+  "devCommand": "npm --prefix frontend run dev -- --host 127.0.0.1 --port $PORT",
   "outputDirectory": "frontend/dist",
   "functions": {
     "api/index.py": {

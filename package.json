@@ -1,0 +1,13 @@
+{
+  "name": "gasopt-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Vercel entrypoint for the GasOps Vite and FastAPI application",
+  "scripts": {
+    "build": "npm --prefix frontend run build",
+    "dev": "npm --prefix frontend run dev"
+  },
+  "engines": {
+    "node": "22.x"
+  }
+}

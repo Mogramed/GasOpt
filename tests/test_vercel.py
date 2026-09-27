@@ -24,6 +24,7 @@ def test_vercel_entrypoint_loads_verified_study():
 def test_vercel_config_builds_frontend_and_preserves_spa_routes():
     config = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
     assert config["outputDirectory"] == "frontend/dist"
+    assert config["devCommand"].startswith("npm --prefix frontend")
     assert config["functions"]["api/index.py"]["maxDuration"] == 60
     routes = {rewrite["source"] for rewrite in config["rewrites"]}
     assert {"/overview", "/model", "/optimizer", "/results", "/solver"} <= routes

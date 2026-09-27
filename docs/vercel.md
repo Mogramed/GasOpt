@@ -34,6 +34,8 @@ preview deployments under the normal Vercel Git workflow.
 - `vercel.json` builds Vite, preserves React Router deep links, includes the
   required scientific snapshot, excludes research/build folders from the Python
   function, and allows up to 60 seconds for a solve request.
+- The root `package.json` gives Vercel a stable monorepo entrypoint; install,
+  build and development commands then delegate to `frontend/` explicitly.
 - Only the four verified processed files and the small root-level empirical
   archive are committed. Raw Dune exports and plot folders remain excluded.
 
