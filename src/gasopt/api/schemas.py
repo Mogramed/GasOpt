@@ -8,6 +8,7 @@ class RequestModel(BaseModel):
 class SolveRequest(RequestModel):
     lambda_risk: Annotated[float, Field(ge=0, strict=True)] = 0
     alpha: Annotated[float, Field(gt=0, lt=1, strict=True)] = .95
+    force_recompute: bool = False
 
 class ScheduleRequest(RequestModel):
     schedule: dict[str, StrictInt]
@@ -38,6 +39,15 @@ class CostPoint(BaseModel):
     cumulative_probability: float
     tail_mass: float
 
+class CalculationTrace(BaseModel):
+    inputs: dict
+    model: dict
+    coefficient_example: dict
+    risk: dict
+    objective: dict
+    solver: dict
+    solution: dict
+
 class SolveResponse(BaseModel):
     origin: Literal["live", "cached_live", "archived"]
     dataset_id: str
@@ -64,6 +74,7 @@ class SolveResponse(BaseModel):
     scenario_costs: list[CostPoint]
     changed_vs_mean_price: int
     solve_seconds: float | None = None
+    calculation_trace: CalculationTrace
 
 class EvaluationResponse(BaseModel):
     context: Literal["TEST evaluation only"] = "TEST evaluation only"

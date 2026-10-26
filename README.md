@@ -36,8 +36,9 @@ features, validation results and unchanged scientific references.
 
 Phase 3.1 adds a mathematical deep dive inside the existing `/model` and
 `/solver` routes: complete scalar and matrix formulations, CVaR linearization,
-gradient/Hessian context, LP bounds, and a fully calculated Branch-and-Bound
-certificate. See the [Phase 3.1 completion report](docs/phase31_status.md).
+gradient/Hessian context, plus a calculation trace reconstructed from the real
+HiGHS solve and its Branch-and-Bound certificate. See the
+[Phase 3.1 completion report](docs/phase31_status.md).
 The final [UI polish report](docs/ui_polish_status.md) covers equation rendering,
 responsive layouts and browser checks on the production Docker build.
 For a Git-based cloud release, follow the [Vercel deployment guide](docs/vercel.md).

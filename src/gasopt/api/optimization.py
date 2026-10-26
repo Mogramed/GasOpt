@@ -17,13 +17,13 @@ class TrainingOptimizer:
         # APPSI/HiGHS output handling is not safe for concurrent in-process solves.
         self._lock = Lock()
 
-    def solve(self, risk, alpha):
+    def solve(self, risk, alpha, force_recompute=False):
         if (1 - alpha) * len(self.train) + 1e-12 < self.config.min_train_tail_count:
             raise ValueError("Thin TRAIN tail: lower alpha to retain at least "
                              f"{self.config.min_train_tail_count:g} scenario equivalents.")
         key = (self.dataset_id, risk, alpha)
         with self._lock:
-            if key in self._cache:
+            if key in self._cache and not force_recompute:
                 self._cache.move_to_end(key)
                 result, duration = self._cache[key]
                 return deepcopy(result), "cached_live", duration

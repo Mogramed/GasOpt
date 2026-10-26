@@ -58,35 +58,21 @@ reported relative gap. It shows actual archived/live solver values when
 available and does not reconstruct an implementation-specific gap formula.
 For minimization it emphasizes `f*_LP ≤ f*_MILP`; the direction is explicit.
 
-## 6. Branch-and-Bound calculations
+## 6. Calculation trace
 
-The original independent teaching problem is retained. Every value is now
-derived in the interface:
-
-- root relaxation: `(x,y)=(0.5,1)`, lower bound 3.5;
-- branch `x=0`: infeasible because it requires `y≥1.5` while `y≤1`;
-- branch `x=1`: `(x,y)=(1,0.5)`, lower bound 4;
-- branch `x=1,y=0`: infeasible;
-- branch `x=1,y=1`: integer feasible, objective/incumbent 5.
-
-The final certificate explains that all alternatives are closed, so `(1,1)`
-with objective 5 is globally optimal. Each tree node exposes fixed variables,
-LP solution, lower bound, status, incumbent and pruning reason. The view is
-explicitly labelled as pedagogical and not the actual HiGHS execution trace.
-
-## 7. Bound-pruning example
-
-An optional second reveal starts with incumbent 5 and a node whose LP lower
-bound is 6. Since `LB_node ≥ UB`, the node is pruned even though infeasibility
-has not been shown. This is a deterministic teaching example, not a solver trace.
+The `/solver` route now depends on the last calculation explicitly launched by
+the user. It reconstructs the real GasOps MILP from the dataset dimensions and
+admissible pairs, substitutes one real transaction coefficient, exposes all 365
+scenario costs, derives the empirical CVaR, substitutes the complete objective,
+and ends with the schedule and HiGHS certificate. If HiGHS closes the problem at
+the root node, the page says so directly and does not invent branches.
 
 ## 8. Tests added
 
-Five frontend tests cover the complete objective/constraints, dynamic dimensions,
-constant gradient, zero Hessian, the absence of a Newton-for-MILP claim, all
-five Branch-and-Bound node results and the careful interpretation of `2^140`.
-The E2E journey now visits the complete model, matrix, calculus and LP-bound
-chapters and checks the pedagogical-trace disclaimer.
+Frontend tests cover the complete objective/constraints, dynamic dimensions,
+constant gradient, zero Hessian and the absence of a Newton-for-MILP claim.
+The E2E journey visits the complete model, matrix, calculus and LP-bound chapters,
+then validates the live calculation trace and HiGHS certificate.
 
 ## 9. Total validation
 
@@ -112,8 +98,8 @@ New material appears in the existing routes:
 
 - `/model`: business translation, formulation, matrix form, derivatives,
   CVaR linearization, actual coefficient substitution and glossary;
-- `/solver`: LP relaxation, actual diagnostics, complete teaching tree,
-  bound pruning, terminology, scale and knowledge checks.
+- `/solver`: actual inputs, model dimensions, coefficient substitution,
+  scenario costs, CVaR, objective, HiGHS certificate and final schedule.
 
 Playwright writes the reviewed captures to `output/playwright/`, including
 `04-model.png`, `07-solver.png`, `09-complete-model.png` and

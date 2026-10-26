@@ -104,16 +104,18 @@ for (const width of [1920, 1280, 390]) {
         });
       }
     }
-    await page.goto("/solver");
-    await expect(page.locator(".branch-node")).toHaveCount(1);
-    await page.getByRole("button", { name: /Reveal branch/ }).click();
-    await page.getByRole("button", { name: /Reveal branch/ }).click();
-    await page.getByRole("button", { name: /x = 1, y = 1/ }).click();
-    await expect(page.locator(".node-inspector")).toContainText("UB = 5");
-    await expect(page.locator(".branch-level").last()).toHaveCSS(
-      "opacity",
-      "1",
-    );
+    await page.goto("/optimizer");
+    await expect(
+      page.getByRole("heading", { name: "No optimization has been run" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Run optimization", exact: true }).click();
+    await expect(page.getByRole("table", { name: "Optimal schedule" })).toBeVisible();
+    await page.getByRole("link", { name: "Open calculation trace" }).click();
+    await expect(
+      page.getByRole("heading", { name: "One solve, reconstructed from inputs to certificate" }),
+    ).toBeVisible();
+    await expect(page.locator(".certificate-live")).toContainText("Global bound");
+    await expect(page.locator(".trace-final")).toBeVisible();
     await expect(page.locator("main > div").first()).toHaveCSS("opacity", "1");
     expect(
       await page.evaluate(
@@ -125,8 +127,8 @@ for (const width of [1920, 1280, 390]) {
       path: `../output/playwright/polish-solver-${width}.png`,
       fullPage: true,
     });
-    await page.locator(".branch-layout").screenshot({
-      path: `../output/playwright/polish-branch-tree-${width}.png`,
+    await page.locator(".certificate-live").screenshot({
+      path: `../output/playwright/polish-highs-certificate-${width}.png`,
     });
     expect(errors).toEqual([]);
   });

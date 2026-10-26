@@ -30,6 +30,7 @@ export type Result = {
   alpha: number;
   exploratory: boolean;
   schedule: Schedule;
+  assignments: { transaction_id: string; slot: number }[];
   expected_cost_eth: number;
   var_eth: number;
   cvar_eth: number;
@@ -46,6 +47,64 @@ export type Result = {
   scenario_costs: CostPoint[];
   changed_vs_mean_price: number;
   solve_seconds: number | null;
+  calculation_trace: {
+    inputs: {
+      dataset_id: string;
+      transactions: number;
+      train_scenarios: number;
+      slots: number;
+      lambda_risk: number;
+      alpha: number;
+      scenario_probability: number;
+      tail_scenario_equivalents: number;
+    };
+    model: {
+      binary_variables: number;
+      continuous_variables: number;
+      total_variables: number;
+      assignment_constraints: number;
+      excess_constraints: number;
+      total_constraints: number;
+    };
+    coefficient_example: {
+      transaction_id: string;
+      scenario_date: string;
+      selected_slot: number;
+      gas_used: number;
+      gas_price_gwei: number;
+      conversion: number;
+      coefficient_eth: number;
+      portfolio_cost_eth: number;
+    };
+    risk: {
+      in_objective: boolean;
+      eta_eth: number;
+      solver_eta_eth: number | null;
+      tail_multiplier: number;
+      positive_excess_scenarios: number;
+      weighted_excess_eth: number;
+      cvar_eth: number;
+      solver_cvar_eth: number | null;
+    };
+    objective: {
+      expected_cost_eth: number;
+      risk_penalty_eth: number;
+      objective_value_eth: number;
+    };
+    solver: {
+      status: string;
+      objective_bound_eth: number | null;
+      optimality_gap: number | null;
+      node_count: number | null;
+      solve_seconds: number | null;
+      origin: "live" | "cached_live" | "archived";
+    };
+    solution: {
+      assignment_count: number;
+      schedule_id: string;
+      changed_vs_mean_price: number;
+    };
+  };
 };
 export type Profile = {
   slot: number;

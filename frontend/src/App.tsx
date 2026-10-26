@@ -38,7 +38,9 @@ type Workspace = {
   profile: Profile[];
   mean: Result;
   current: Result;
+  calculation: Result | null;
   setCurrent: (r: Result) => void;
+  clearCalculation: () => void;
   viewedTest: boolean;
   markTest: () => void;
 };
@@ -57,7 +59,7 @@ const links = [
   ["scenarios", "Scenario explorer", Activity],
   ["risk", "Risk & CVaR", ShieldCheck],
   ["results", "TEST results", ChartNoAxesCombined],
-  ["solver", "Solver explorer", GitBranch],
+  ["solver", "Calculation trace", GitBranch],
   ["methodology", "Methodology", BookOpen],
 ] as const;
 export default function App() {
@@ -151,7 +153,9 @@ export default function App() {
                 profile: profile.data!,
                 mean: mean.data!,
                 current: selected ?? mean.data!,
+                calculation: selected,
                 setCurrent,
+                clearCalculation: () => setCurrent(null),
                 viewedTest,
                 markTest: () => setViewedTest(true),
               }}

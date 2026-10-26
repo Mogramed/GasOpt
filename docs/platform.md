@@ -54,14 +54,13 @@ src/gasopt/                  existing scientific core, unchanged
     serialization.py         JSON, cost points, schedule identities, UTC labels
     optimization.py          TRAIN-only solver adapter and bounded result cache
     evaluation.py            frozen TEST adapter; no optimizer imports
-    education.py             separate tiny pedagogical LP-bound example
 frontend/
   src/App.tsx                shell, routing, current-result workspace
   src/api.ts                 API contracts, TanStack Query, formatting
   src/components.tsx         matrix, inspector, heatmap, charts, math, diagnostics
   src/pages/Explore.tsx      overview, data, workload, methodology
   src/pages/Laboratory.tsx   optimization, risk, scenarios, TEST results
-  src/pages/Education.tsx    progressive math and branch-and-bound illustration
+  src/pages/Education.tsx    progressive math and last-calculation trace
   src/styles.css            restrained dark interface and responsive layouts
   src/components.test.tsx   React Testing Library / Vitest
   e2e/gasops.spec.ts         live browser demo smoke test
@@ -116,19 +115,20 @@ risk settings and unknown request fields. No evaluation endpoint invokes a solve
 | GET | `workload` | The 30 transactions and feasible windows |
 | GET | `model/summary` | Runtime model inputs and mean prices |
 | GET | `model/diagnostics` | Archived solver diagnostics |
-| POST | `optimization/solve` | Live TRAIN-only solve, `{lambda_risk, alpha}` |
+| POST | `optimization/solve` | Live TRAIN-only solve; `force_recompute` bypasses the cache |
 | POST | `evaluation/frozen-schedule` | TEST evaluation, `{schedule, alpha}` |
 | GET | `evaluation/daily-costs` | Archived chronological TEST costs |
 | POST | `analysis/compare` | Full TRAIN schedules A/B, changed rows and cost differences |
 | POST | `analysis/scenario` | One historical day, explicit TRAIN or TEST context |
 | POST | `analysis/calculator` | Actual transaction / TRAIN day / feasible slot cost |
-| GET | `education/branch-and-bound` | Tiny independent LP-bound illustration |
 
 Solve responses include schedule, binary assignments, cost distribution, objective,
-VaR/CVaR, worst cost, status, bound, gap, dimensions and elapsed solve time.
+VaR/CVaR, worst cost, status, bound, gap, node count, dimensions, elapsed solve time,
+and a numerical calculation trace from inputs through the final schedule.
 `origin` is `live`, `cached_live` or `archived`; archived values never silently
 replace a failed solve. The UI offers an explicit archive button after a failure.
-APPSI node count is `null` and is explained in the UI.
+The web HiGHS adapter preserves the reported Branch-and-Bound node count. A root-node
+solve is explained as such in the UI instead of being replaced by a fabricated tree.
 
 Alpha must retain at least the configured 10 TRAIN tail equivalents; the API
 returns 422 for too-thin training tails. TEST tails are reported with a visible
@@ -142,13 +142,13 @@ This is a teaching cue, not a substitute for a preregistered research protocol.
 `/overview`, `/data`, `/workload`, `/model`, `/optimizer`, `/scenarios`, `/risk`,
 `/results`, `/solver`, `/methodology`. No presentation or slide-deck mode exists.
 
-1. Open Optimization Lab; choose Risk neutral, then Run optimization.
-2. Choose Light (lambda=.05), run again, and open Compare schedules.
-3. Schedule A defaults to archived mean price; B is the current live result.
-4. Enable changed-only. There are 11 changed transactions for the validated pair.
-5. Click TX-02 to inspect gas, timing, admissible mean prices, old/current slots.
+1. Open Optimization Lab; the page starts with no current calculation.
+2. Run the risk-neutral model. The request forces a real HiGHS solve.
+3. Change lambda to `.05`; the previous result disappears until the next run.
+4. Open Calculation trace to inspect every numerical step and the HiGHS certificate.
+5. Compare the resulting schedule with an explicitly labelled archived reference.
 6. Open Risk & CVaR to inspect the sorted TRAIN costs and fractional tail mass.
-7. Optionally open TEST results or explicitly evaluate the frozen live schedule.
+7. Optionally evaluate the frozen live schedule on TEST.
 
 The comparison selectors also support any pair of archived strategies. Changes,
 TRAIN mean/CVaR/worst differences and full-schedule daily costs come from the API.
@@ -162,9 +162,9 @@ and TRAIN frontier. KaTeX renders progressively revealed mathematics, including
 the deterministic/expected-value equivalence. Framer Motion is limited to result,
 inspector and equation reveals and respects reduced-motion settings.
 
-The branch-and-bound example solves LP relaxations of a separate two-binary
-problem (`min 3x+2y`, `2x+2y>=3`). Actual illustrative LP bounds are 3.5 and 4;
-the integer optimum is 5. The UI labels it as pedagogical, never as a HiGHS trace.
+The calculation trace uses only the latest user-triggered solve. It reports the
+actual admissible transaction-slot pairs, all 365 scenario costs, the empirical
+CVaR construction, the substituted objective and the real HiGHS certificate.
 
 ## Docker and errors
 

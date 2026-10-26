@@ -128,13 +128,15 @@ export function Optimizer() {
     workload,
     profile,
     current,
+    calculation,
     setCurrent,
+    clearCalculation,
     mean,
     viewedTest,
     markTest,
   } = useWorkspace();
-  const [risk, setRisk] = useState(current.lambda_risk),
-    [alpha, setAlpha] = useState(current.alpha),
+  const [risk, setRisk] = useState(0),
+    [alpha, setAlpha] = useState(meta.alpha),
     [compare, setCompare] = useState(false),
     [aName, setAName] = useState("mean_price"),
     [bName, setBName] = useState("current"),
@@ -160,7 +162,11 @@ export function Optimizer() {
   }, [compare, a.data, right, current.alpha]);
   const solve = useMutation({
     mutationFn: () =>
-      api<Result>("optimization/solve", { lambda_risk: risk, alpha }),
+      api<Result>("optimization/solve", {
+        lambda_risk: risk,
+        alpha,
+        force_recompute: true,
+      }),
     onSuccess: (r) => {
       setCurrent({ ...r, exploratory: r.exploratory || viewedTest });
       setBName("current");
@@ -173,10 +179,6 @@ export function Optimizer() {
         alpha: current.alpha,
       }),
     onMutate: markTest,
-  });
-  const fallback = useMutation({
-    mutationFn: () => api<Result>("study/archive/cvar_lambda_" + risk),
-    onSuccess: setCurrent,
   });
   const tail = (1 - alpha) * meta.train_days,
     invalid =
@@ -199,7 +201,16 @@ export function Optimizer() {
       <div className="lab-controls">
         <div>
           <span className="control-label">RISK-AVERSION PRESETS</span>
-          <LambdaControl value={risk} onChange={setRisk} />
+          <LambdaControl
+            value={risk}
+            onChange={(value) => {
+              setRisk(value);
+              solve.reset();
+              clearCalculation();
+              setCompare(false);
+              evaluation.reset();
+            }}
+          />
         </div>
         <label>
           Custom λ
@@ -209,9 +220,13 @@ export function Optimizer() {
             min="0"
             step="0.05"
             value={Number.isNaN(risk) ? "" : risk}
-            onChange={(e) =>
-              setRisk(e.target.value === "" ? NaN : Number(e.target.value))
-            }
+            onChange={(e) => {
+              setRisk(e.target.value === "" ? NaN : Number(e.target.value));
+              solve.reset();
+              clearCalculation();
+              setCompare(false);
+              evaluation.reset();
+            }}
           />
         </label>
         <label>
@@ -223,15 +238,21 @@ export function Optimizer() {
             max="0.9999"
             step="0.01"
             value={Number.isNaN(alpha) ? "" : alpha}
-            onChange={(e) =>
-              setAlpha(e.target.value === "" ? NaN : Number(e.target.value))
-            }
+            onChange={(e) => {
+              setAlpha(e.target.value === "" ? NaN : Number(e.target.value));
+              solve.reset();
+              clearCalculation();
+              setCompare(false);
+              evaluation.reset();
+            }}
           />
         </label>
         <button
           className="button primary run-button"
           disabled={solve.isPending || invalid}
           onClick={() => {
+            clearCalculation();
+            setCompare(false);
             evaluation.reset();
             solve.mutate();
           }}
@@ -264,19 +285,36 @@ export function Optimizer() {
         </div>
       )}
       {solve.isPending && (
-        <Loading text="Pyomo / HiGHS is solving the TRAIN model. Waiting for actual solver completion…" />
+        <div className="solve-progress" aria-live="polite">
+          <Loading text="HiGHS is solving the TRAIN model. Waiting for the audited result…" />
+          <ol>
+            <li>Validate λ, α and the frozen TRAIN dataset</li>
+            <li>Build binary assignments and CVaR constraints</li>
+            <li>Solve the MILP and calculate the global bound</li>
+            <li>Recompute every scenario cost and audit the objective</li>
+          </ol>
+        </div>
       )}
       {solve.error && (
-        <>
-          <ErrorState error={solve.error} />
-          {meta.config.lambda_grid.includes(risk) && (
-            <button className="button" onClick={() => fallback.mutate()}>
-              View validated Phase 2 result at α = {meta.alpha}
-            </button>
-          )}
-          {fallback.error && <ErrorState error={fallback.error} />}
-        </>
+        <ErrorState error={solve.error} />
       )}
+      {!calculation && !solve.isPending && !solve.error && (
+        <motion.div
+          className="calculator-empty"
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <span>READY TO CALCULATE</span>
+          <h2>No optimization has been run</h2>
+          <p>
+            Choose λ and α, then run the TRAIN-only MILP. Results and the
+            mathematical calculation trace stay hidden until HiGHS returns an
+            audited solution.
+          </p>
+        </motion.div>
+      )}
+      {calculation && (
+        <>
       <div className="result-top">
         <Origin r={current} />
         <span>
@@ -291,6 +329,25 @@ export function Optimizer() {
       >
         <ResultMetrics r={current} />
       </motion.div>
+      <div className="trace-preview">
+        <div>
+          <span>EXPECTED COST</span>
+          <b>{eth(calculation.calculation_trace.objective.expected_cost_eth)} ETH</b>
+        </div>
+        <span>+</span>
+        <div>
+          <span>λ × CVaR</span>
+          <b>{eth(calculation.calculation_trace.objective.risk_penalty_eth)} ETH</b>
+        </div>
+        <span>=</span>
+        <div>
+          <span>SOLVER OBJECTIVE</span>
+          <b>{eth(calculation.calculation_trace.objective.objective_value_eth)} ETH</b>
+        </div>
+        <Link className="button" to="/solver">
+          Open calculation trace <ArrowUpRight size={15} />
+        </Link>
+      </div>
       <div className="with-inspector">
         <div className="lab-main">
           <Section
@@ -534,6 +591,8 @@ export function Optimizer() {
             />
           </div>
         </Section>
+      )}
+        </>
       )}
     </>
   );

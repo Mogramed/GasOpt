@@ -45,19 +45,18 @@ solver construction and TEST savings come from these existing modules.
 
 ## 5. Scientific modules modified
 
-None. The original scientific dependency lock and empirical outputs are retained.
-The illustrative branch-and-bound model is new API educational code and never
-replaces the empirical optimizer.
+The original scientific dependency lock and empirical outputs are retained.
+The API adapter now returns a numerical trace for the real empirical optimizer.
 
 ## 6. API endpoints
 
-All 19 endpoints use `/api/v1/`:
+All endpoints use `/api/v1/`:
 
 | Method | Paths |
 |:--|:--|
 | GET | `health`, `study/meta`, `study/results`, `study/sensitivity`, `study/archive/{strategy}` |
 | GET | `data/slot-profile`, `data/gas-history`, `data/heatmap`, `data/gas-used`, `workload` |
-| GET | `model/summary`, `model/diagnostics`, `evaluation/daily-costs`, `education/branch-and-bound` |
+| GET | `model/summary`, `model/diagnostics`, `evaluation/daily-costs` |
 | POST | `optimization/solve`, `evaluation/frozen-schedule`, `analysis/compare`, `analysis/scenario`, `analysis/calculator` |
 
 Request contracts and endpoint purposes are documented in [platform.md](platform.md#api)
@@ -74,16 +73,17 @@ Complete-day gas heatmap with keyboard day selector, historical gas time series,
 TRAIN slot mean/median comparison and quantile table, observed gas histogram,
 30 × 12 feasible/selected schedule matrix, transaction inspector, paired daily
 cost curves, sorted scenario costs with fractional tail highlights, TRAIN
-cost–risk frontier, and a separate branch-and-bound tree. Values originate from
-the local study; chart interpolation never creates scientific observations.
+cost–risk frontier, and the complete trace of the latest real calculation.
+Values originate from the local study; chart interpolation never creates
+scientific observations.
 
 ## 9. Live optimization
 
 Choose lambda and alpha → validate inputs and TRAIN tail support → fit the
 unchanged deterministic or CVaR model on TRAIN only → display the actual schedule,
-costs and solver diagnostics. A bounded cache is keyed by dataset identity and
-parameters. Badges distinguish live, cached live and archived results. A failed
-solve displays an error and offers an explicit archived-result button.
+costs, solver diagnostics and a numerical trace. The calculator passes
+`force_recompute=true`, so every click executes HiGHS. Archived results remain
+separate references and never replace the current calculation.
 
 ## 10. Strategy comparison
 

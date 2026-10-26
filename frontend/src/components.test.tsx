@@ -2,7 +2,7 @@ import { render,screen,fireEvent } from '@testing-library/react';
 import { describe,it,expect,vi } from 'vitest';
 import { MathBlock,TestBanner,ScheduleMatrix,ErrorState,ResultMetrics,CostDistribution,Heatmap } from './components';
 import { LambdaControl } from './pages/Laboratory';
-import { BranchWalkthrough,FullFormulation,LinearRelaxationCalculus,MatrixFormulation,SearchSpaceNote,type BranchNode } from './pages/Education';
+import { FullFormulation,LinearRelaxationCalculus,MatrixFormulation } from './pages/Education';
 import { api,type Tx,type Result,type CostPoint } from './api';
 import type { ReactNode } from 'react';
 
@@ -30,13 +30,4 @@ describe('Phase 3.1 mathematical deep dive',()=>{
  it('renders the complete objective and constraints',()=>{render(<FullFormulation/>);const model=screen.getByTestId('complete-model');const source=model.querySelector('annotation')?.textContent??'';expect(model).toHaveTextContent('COMPLETE FORMULATION');expect(source).toContain('\\min_{x,\\eta,\\xi}');expect(source).toContain('\\sum_{t:(i,t)\\in\\mathcal A}x_{it}=1');expect(source).toContain('\\xi_s\\ge C_s(x)-\\eta');expect(source).toContain('x_{it}\\in\\{0,1\\}');expect(model.querySelector('.katex-error')).toBeNull();expect(screen.getByRole('button',{name:/Copy model/})).toBeTruthy();});
  it('uses runtime empirical dimensions in the matrix formulation',()=>{render(<MatrixFormulation transactions={30} scenarios={365} binaries={140} variables={506} constraints={395}/>);const matrix=screen.getByTestId('matrix-formulation');expect(matrix).toHaveTextContent('365 × 140');expect(matrix).toHaveTextContent('30 × 140');expect(matrix).toHaveTextContent('506 variables / 395 constraints');expect(matrix).toHaveTextContent('Ax = 1');});
  it('states the constant gradient and zero Hessian only for the relaxation',()=>{render(<LinearRelaxationCalculus/>);const section=screen.getByTestId('linear-calculus');expect(section).toHaveTextContent('Constant everywhere in the continuous relaxation');expect(section).toHaveTextContent('zero matrix');expect(section).toHaveTextContent('Newton or Hessian methods therefore do not solve the integer problem');expect(section).not.toHaveTextContent('Newton solves the MILP');});
- const nodes:BranchNode[]=[
-  {id:'root',parent:null,fixed:{},bound:3.5,x:.5,y:1,status:'fractional relaxation',reason:'branch'},
-  {id:'x0',parent:'root',fixed:{x:0},bound:null,x:null,y:null,status:'infeasible',reason:'prune'},
-  {id:'x1',parent:'root',fixed:{x:1},bound:4,x:1,y:.5,status:'fractional relaxation',reason:'branch'},
-  {id:'y0',parent:'x1',fixed:{x:1,y:0},bound:null,x:null,y:null,status:'infeasible',reason:'prune'},
-  {id:'y1',parent:'x1',fixed:{x:1,y:1},bound:5,x:1,y:1,status:'integer incumbent',reason:'incumbent'},
- ];
- it('shows every hand-calculated branch-and-bound result',()=>{const {rerender}=render(<BranchWalkthrough nodes={nodes} depth={2} selected="root" onSelect={()=>{}}/>);expect(screen.getByText('LB = 3.5')).toBeTruthy();rerender(<BranchWalkthrough nodes={nodes} depth={2} selected="x0" onSelect={()=>{}}/>);expect(screen.getByText('Prune by infeasibility')).toBeTruthy();rerender(<BranchWalkthrough nodes={nodes} depth={2} selected="x1" onSelect={()=>{}}/>);expect(screen.getByText('LB = 4.0')).toBeTruthy();rerender(<BranchWalkthrough nodes={nodes} depth={2} selected="y1" onSelect={()=>{}}/>);expect(screen.getByText('UB = 5')).toBeTruthy();expect(screen.getByText('Integer feasible: update incumbent')).toBeTruthy();});
- it('describes 2^140 as unconstrained vectors rather than feasible schedules',()=>{render(<SearchSpaceNote binaries={140}/>);const note=screen.getByTestId('search-space');expect(note).toHaveTextContent('UNCONSTRAINED BINARY SEARCH SPACE');expect(note).toHaveTextContent('1.39 × 10^42');expect(note).toHaveTextContent('not feasible schedules');});
 });

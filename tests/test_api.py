@@ -26,7 +26,7 @@ def client(study):
 
 @pytest.mark.parametrize('path', ['health','study/meta','study/results','study/sensitivity',
     'workload','data/slot-profile','data/gas-history','data/heatmap','data/gas-used',
-    'model/summary','model/diagnostics','evaluation/daily-costs','education/branch-and-bound'])
+    'model/summary','model/diagnostics','evaluation/daily-costs'])
 def test_read_contracts(client,path):
     r=client.get('/api/v1/'+path)
     assert r.status_code==200 and r.json()
@@ -59,6 +59,44 @@ def test_live_regression_all_prespecified_weights(client,study,risk):
     assert sum(p.tail_mass for p in live.scenario_costs)==pytest.approx(.05)
     for tx in study.transactions:
         assert tx.release_slot<=live.schedule[tx.id]<=tx.deadline
+
+
+def test_live_calculation_trace_is_numerically_complete(client, study):
+    response = client.post('/api/v1/optimization/solve', json={
+        'lambda_risk': .05, 'alpha': .95, 'force_recompute': True})
+    assert response.status_code == 200, response.text
+    live = SolveResponse.model_validate(response.json())
+    trace = live.calculation_trace
+    assert live.origin == 'live'
+    assert trace.inputs['transactions'] == 30
+    assert trace.inputs['train_scenarios'] == 365
+    assert trace.inputs['slots'] == 12
+    assert trace.model == {
+        'binary_variables': 140, 'continuous_variables': 366,
+        'total_variables': 506, 'assignment_constraints': 30,
+        'excess_constraints': 365, 'total_constraints': 395}
+    weighted_excess = sum(point.probability * point.xi_eth for point in live.scenario_costs)
+    assert trace.risk['weighted_excess_eth'] == pytest.approx(weighted_excess, abs=1e-12)
+    assert trace.risk['cvar_eth'] == pytest.approx(
+        trace.risk['eta_eth'] + weighted_excess / (1 - live.alpha), abs=1e-12)
+    assert trace.objective['risk_penalty_eth'] == pytest.approx(.05 * live.cvar_eth)
+    assert trace.objective['objective_value_eth'] == pytest.approx(
+        live.expected_cost_eth + .05 * live.cvar_eth, abs=1e-12)
+    example = trace.coefficient_example
+    assert example['coefficient_eth'] == pytest.approx(
+        example['gas_used'] * example['gas_price_gwei'] * 1e-9, abs=1e-12)
+    assert trace.solver['node_count'] == live.node_count
+    assert live.node_count is not None
+    assert trace.solver['objective_bound_eth'] == pytest.approx(live.objective_value_eth)
+    assert trace.solution['assignment_count'] == 30
+
+
+def test_lambda_zero_trace_marks_cvar_as_post_solve(client):
+    live = SolveResponse.model_validate(client.post('/api/v1/optimization/solve', json={
+        'lambda_risk': 0.0, 'alpha': .95, 'force_recompute': True}).json())
+    assert live.calculation_trace.risk['in_objective'] is False
+    assert live.calculation_trace.model['continuous_variables'] == 0
+    assert live.calculation_trace.objective['risk_penalty_eth'] == 0
 
 def test_train_only_even_if_test_prices_change(client,study,monkeypatch):
     import gasopt.api.optimization as module
@@ -109,6 +147,9 @@ def test_cache_error_fallback_and_missing_data(client,study,monkeypatch,tmp_path
     a=client.post('/api/v1/optimization/solve',json={'lambda_risk':.05}).json()
     b=client.post('/api/v1/optimization/solve',json={'lambda_risk':.05}).json()
     assert b['origin']=='cached_live' and b['schedule']==a['schedule']
+    c=client.post('/api/v1/optimization/solve',json={
+        'lambda_risk':.05, 'force_recompute':True}).json()
+    assert c['origin']=='live' and c['schedule']==a['schedule']
     def failed(*args,**kwargs): raise RuntimeError('infeasible test injection')
     monkeypatch.setattr(study.optimizer,'solve',failed)
     r=client.post('/api/v1/optimization/solve',json={})

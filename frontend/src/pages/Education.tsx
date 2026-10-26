@@ -3,23 +3,21 @@ import { Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  ArrowDown,
   ArrowRight,
   Check,
   ChevronLeft,
   ChevronRight,
   Copy,
-  GitBranch,
 } from "lucide-react";
 import { useWorkspace } from "../App";
 import { api, eth, num, price, useApi, type Tx } from "../api";
 import {
   Badge,
-  Diagnostics,
   ErrorState,
   Loading,
   MathBlock,
   PageHeader,
+  ScheduleMatrix,
   Section,
   Timeline,
 } from "../components";
@@ -663,11 +661,12 @@ export function ModelPage() {
                   <p className="explanation">
                     For this minimization problem, relaxing integrality enlarges
                     the feasible set. Its optimum is therefore a lower bound.
-                    For maximization the direction reverses. Continue to Solver
-                    explorer to see every bound calculated by hand.
+                    For maximization the direction reverses. Run the optimizer,
+                    then open Calculation trace to inspect the real HiGHS bound,
+                    gap and node count.
                   </p>
                   <Link className="button primary inline-action" to="/solver">
-                    Open Solver explorer <ArrowRight size={15} />
+                    Open Calculation trace <ArrowRight size={15} />
                   </Link>
                 </>
               )}
@@ -830,430 +829,312 @@ function ScenarioPicker({
   );
 }
 
-export type BranchNode = {
-  id: string;
-  parent: string | null;
-  fixed: Record<string, number>;
-  bound: number | null;
-  x: number | null;
-  y: number | null;
-  status: string;
-  reason: string;
-};
-type BranchDemo = {
-  label: string;
-  disclaimer: string;
-  formulation: string;
-  nodes: BranchNode[];
-  optimum: number;
-  bound_pruning: string;
-};
-const nodeMath: Record<
-  string,
-  { title: string; lines: string[]; incumbent: string; prune: string }
-> = {
-  root: {
-    title: "Root LP relaxation",
-    lines: [
-      "y costs 2 while x costs 3, so use y first.",
-      "y = 1 ⇒ x + 1 ≥ 1.5 ⇒ x ≥ 0.5",
-      "3(0.5) + 2(1) = 3.5",
-    ],
-    incumbent: "not found",
-    prune: "Branch on fractional x = 0.5",
-  },
-  x0: {
-    title: "Node A · x = 0",
-    lines: ["0 + y ≥ 1.5 ⇒ y ≥ 1.5", "But the relaxation requires y ≤ 1."],
-    incumbent: "not found",
-    prune: "Prune by infeasibility",
-  },
-  x1: {
-    title: "Node B · x = 1",
-    lines: ["1 + y ≥ 1.5 ⇒ y ≥ 0.5", "3(1) + 2(0.5) = 4"],
-    incumbent: "not found",
-    prune: "Branch on fractional y = 0.5",
-  },
-  y0: {
-    title: "Node B1 · x = 1, y = 0",
-    lines: ["1 + 0 ≥ 1.5 is false."],
-    incumbent: "not found",
-    prune: "Prune by infeasibility",
-  },
-  y1: {
-    title: "Node B2 · x = 1, y = 1",
-    lines: ["1 + 1 ≥ 1.5 is true.", "3(1) + 2(1) = 5"],
-    incumbent: "UB = 5",
-    prune: "Integer feasible: update incumbent",
-  },
-};
-
-export function BranchWalkthrough({
-  nodes,
-  depth,
-  selected,
-  onSelect,
-}: {
-  nodes: BranchNode[];
-  depth: number;
-  selected: string;
-  onSelect: (s: string) => void;
-}) {
-  const active = nodes.find((n) => n.id === selected) ?? nodes[0],
-    note = nodeMath[active.id];
-  return (
-    <div className="branch-layout" data-testid="branch-walkthrough">
-      <div className="branch-tree">
-        {[nodes.slice(0, 1), nodes.slice(1, 3), nodes.slice(3)]
-          .slice(0, depth + 1)
-          .map((level, i) => (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              key={i}
-              className={`branch-level level-${i}`}
-            >
-              {level.map((n) => (
-                <button
-                  onClick={() => onSelect(n.id)}
-                  aria-pressed={selected === n.id}
-                  key={n.id}
-                  className={`branch-node ${n.bound === null ? "pruned" : ""} ${selected === n.id ? "active" : ""}`}
-                >
-                  <span>
-                    {n.id === "root"
-                      ? "ROOT"
-                      : Object.entries(n.fixed)
-                          .map(([k, v]) => `${k} = ${v}`)
-                          .join(", ")}
-                  </span>
-                  <b>
-                    {n.bound === null
-                      ? "INFEASIBLE"
-                      : `LB = ${n.bound.toFixed(1)}`}
-                  </b>
-                  <small>{n.x === null ? "PRUNE" : `x=${n.x}, y=${n.y}`}</small>
-                  <em>{n.status}</em>
-                </button>
-              ))}
-            </motion.div>
-          ))}
-      </div>
-      <aside className="node-inspector">
-        <Badge>{active.status}</Badge>
-        <h3>{note.title}</h3>
-        <ol>
-          {note.lines.map((l) => (
-            <li key={l}>{l}</li>
-          ))}
-        </ol>
-        <dl>
-          <dt>LP lower bound</dt>
-          <dd>{active.bound ?? "—"}</dd>
-          <dt>LP solution</dt>
-          <dd>{active.x === null ? "—" : `(${active.x}, ${active.y})`}</dd>
-          <dt>Incumbent</dt>
-          <dd>{note.incumbent}</dd>
-        </dl>
-        <strong>{note.prune}</strong>
-      </aside>
-    </div>
-  );
-}
-
-export function SearchSpaceNote({ binaries }: { binaries: number }) {
-  const approx = (2 ** binaries).toExponential(2).replace("e+", " × 10^");
-  return (
-    <div className="scale-note" data-testid="search-space">
-      <span>UNCONSTRAINED BINARY SEARCH SPACE</span>
-      <b>
-        2<sup>{binaries}</sup> ≈ {approx}
-      </b>
-      <p>
-        This counts all binary vectors, not feasible schedules. Assignment
-        constraints eliminate many vectors, but brute-force enumeration is still
-        not a serious solution method.
-      </p>
-    </div>
-  );
-}
-
-function BoundPruningExample() {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="bound-example">
-      <div>
-        <span>OPTIONAL SECOND EXAMPLE</span>
-        <h3>Prune by bound</h3>
-        <p>
-          An incumbent with value 5 already exists. Another minimization node
-          has LP lower bound 6.
-        </p>
-      </div>
-      <button className="button" onClick={() => setOpen(!open)}>
-        {open ? "Hide conclusion" : "Check the bound"}
-      </button>
-      {open && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="bound-verdict"
-        >
-          <MathBlock math={String.raw`LB_{node}=6\ge UB=5`} />
-          <b>PRUNE</b>
-          <p>
-            Every integer solution inside that node costs at least 6, so none
-            can improve the incumbent 5.
-          </p>
-        </motion.div>
-      )}
-    </div>
-  );
-}
-function KnowledgeCheck() {
-  const [shown, setShown] = useState<Record<number, boolean>>({});
-  const qs = [
-    [
-      "If the LP relaxation gives 4.2 and the best integer solution is 5, which is the lower bound?",
-      "4.2. For minimization, the relaxed optimum is the lower bound.",
-    ],
-    [
-      "What happens when a node has LB = 6 and incumbent UB = 5?",
-      "Prune it by bound: it cannot contain a better solution.",
-    ],
-    [
-      "Why may x = 0.5 appear in the relaxation?",
-      "The relaxation replaces x ∈ {0,1} with 0 ≤ x ≤ 1.",
-    ],
-  ];
-  return (
-    <div className="knowledge-check">
-      {qs.map(([q, a], i) => (
-        <div key={q}>
-          <p>{q}</p>
-          <button onClick={() => setShown({ ...shown, [i]: !shown[i] })}>
-            {shown[i] ? a : "Reveal answer"}
-          </button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export function SolverPage() {
-  const { current, meta } = useWorkspace();
-  const demo = useApi<BranchDemo>("education/branch-and-bound");
-  const [selected, setSelected] = useState("root"),
-    [depth, setDepth] = useState(0);
-  const terms = [
-    ["Node", "Subproblem formed by fixing integer variables."],
-    ["Relaxation", "Continuous version used to calculate a bound."],
-    [
-      "Lower bound",
-      "For minimization, the best value a relaxed node could promise.",
-    ],
-    [
-      "Incumbent",
-      "Best integer feasible solution found so far; its value is the upper bound.",
-    ],
-    ["Branch", "Split one fractional integer decision into separate cases."],
-    ["Prune by infeasibility", "Close a node with no feasible solution."],
-    ["Prune by bound", "Close a node that cannot beat the incumbent."],
-    [
-      "Prune by integrality",
-      "Close a relaxed node whose optimum is already integer.",
-    ],
-    [
-      "Optimality gap",
-      "Distance between the global lower bound and incumbent.",
-    ],
-  ];
+  const { calculation, workload } = useWorkspace();
+  const [allScenarios, setAllScenarios] = useState(false);
+
+  if (!calculation) {
+    return (
+      <>
+        <PageHeader
+          eyebrow="08 / CALCULATION TRACE"
+          title="No calculation to explain yet"
+          description="Run the portfolio optimizer first. This page will then reconstruct every numerical step from that exact HiGHS result."
+        />
+        <div className="trace-empty">
+          <span>WAITING FOR A LIVE SOLVE</span>
+          <h2>The trace starts when the calculation starts</h2>
+          <p>
+            Archived schedules remain available elsewhere as references. This
+            page only explains a result produced from the calculator in the
+            current session.
+          </p>
+          <Link className="button primary" to="/optimizer">
+            Open Optimization lab <ArrowRight size={15} />
+          </Link>
+        </div>
+      </>
+    );
+  }
+
+  const trace = calculation.calculation_trace;
+  const tail = calculation.scenario_costs
+    .filter((point) => point.tail_mass > 0)
+    .sort((a, b) => b.cost_eth - a.cost_eth);
+  const scenarios = [...calculation.scenario_costs].sort(
+    (a, b) => b.cost_eth - a.cost_eth,
+  );
+  const coefficient = trace.coefficient_example;
+  const risk = trace.risk;
+  const objective = trace.objective;
+  const solver = trace.solver;
+
   return (
     <>
       <PageHeader
-        eyebrow="08 / OPTIMIZATION MECHANICS"
-        title="How a solver proves optimality"
-        description="Follow LP bounds, branching, incumbents and pruning from a two-variable problem to the empirical GasOps MILP."
+        eyebrow="08 / CALCULATION TRACE"
+        title="One solve, reconstructed from inputs to certificate"
+        description="Every value below comes from the current GasOps portfolio and the audited HiGHS response."
+        action={
+          <Badge tone="green">
+            LIVE · {solver.status.toUpperCase()} · {trace.solution.schedule_id}
+          </Badge>
+        }
       />
+
+      <nav className="trace-index" aria-label="Calculation steps">
+        {[
+          "Inputs",
+          "MILP",
+          "Coefficient",
+          "Scenarios",
+          "CVaR",
+          "Objective",
+          "Certificate",
+          "Schedule",
+        ].map((label, index) => (
+          <a key={label} href={"#trace-" + (index + 1)}>
+            <span>{String(index + 1).padStart(2, "0")}</span>
+            {label}
+          </a>
+        ))}
+      </nav>
+
       <Section
-        title="The central relaxation"
-        subtitle="A lower bound for this minimization problem"
+        title="1 · Inputs fixed before optimization"
+        subtitle="The schedule is chosen once and evaluated across all TRAIN days"
       >
-        <div className="relaxation-banner">
-          <MathBlock
-            math={String.raw`x_j\in\{0,1\}\quad\longrightarrow\quad0\le x_j\le1`}
-          />
-          <p>
-            The relaxed feasible set is larger, so its minimum can only be lower
-            than or equal to the integer minimum.
-          </p>
-          <MathBlock
-            math={String.raw`f^*_{LP}\le f^*_{MILP}\qquad\text{(minimization)}`}
-          />
+        <div className="trace-metrics" id="trace-1">
+          <div><span>Transactions</span><b>{trace.inputs.transactions}</b></div>
+          <div><span>TRAIN scenarios</span><b>{trace.inputs.train_scenarios}</b></div>
+          <div><span>Two-hour slots</span><b>{trace.inputs.slots}</b></div>
+          <div><span>Scenario probability</span><b>{trace.inputs.scenario_probability.toFixed(6)}</b></div>
+          <div><span>Risk weight λ</span><b>{trace.inputs.lambda_risk}</b></div>
+          <div><span>Confidence α</span><b>{trace.inputs.alpha}</b></div>
         </div>
+        <MathBlock
+          math={String.raw`q_s=1/${trace.inputs.train_scenarios},\qquad (1-\alpha)|S|=${trace.inputs.tail_scenario_equivalents.toFixed(2)}\text{ scenario equivalents}`}
+        />
       </Section>
+
       <Section
-        title="Current empirical result"
-        subtitle={`λ = ${current.lambda_risk} · α = ${current.alpha} · ${current.origin === "archived" ? "validated archive" : "live engine result"}`}
+        title="2 · Portfolio constraints become one MILP"
+        subtitle="Only transaction-slot pairs inside their business windows exist as binary decisions"
       >
-        <Diagnostics r={current} />
-        <div className="optimality-strip">
-          <div>
-            <span>Incumbent / upper bound</span>
-            <b>{eth(current.objective_value_eth)} ETH</b>
+        <div className="trace-equation-row" id="trace-2">
+          <MathBlock
+            math={String.raw`x_{it}\in\{0,1\},\qquad \sum_{t=r_i}^{d_i}x_{it}=1\quad\forall i`}
+          />
+          <ArrowRight aria-hidden="true" />
+          <div className="trace-count">
+            <b>{trace.model.total_variables}</b>
+            <span>variables</span>
+            <small>
+              {trace.model.binary_variables} binary +{" "}
+              {trace.model.continuous_variables} continuous
+            </small>
           </div>
-          <div>
-            <span>Solver lower bound</span>
-            <b>{eth(current.objective_bound_eth)} ETH</b>
-          </div>
-          <div>
-            <span>Reported relative gap</span>
-            <b>
-              {current.optimality_gap == null
-                ? "—"
-                : current.optimality_gap.toExponential(2)}
-            </b>
+          <div className="trace-count">
+            <b>{trace.model.total_constraints}</b>
+            <span>constraints</span>
+            <small>
+              {trace.model.assignment_constraints} assignment +{" "}
+              {trace.model.excess_constraints} CVaR
+            </small>
           </div>
         </div>
-        <p className="caption">
-          At optimality, the lower and upper bounds agree within solver
-          tolerance. The displayed gap is the solver result; GasOps does not
-          substitute an implementation-specific formula.
+        <p className="explanation">
+          The {trace.model.binary_variables} admissible cells are the actual
+          decision vector. Forbidden slots are omitted, so they cannot be
+          selected by the solver.
         </p>
       </Section>
+
       <Section
-        title="Branch-and-Bound, calculated line by line"
-        subtitle="Pedagogical example — not the actual HiGHS execution trace of the empirical model."
+        title="3 · One real cost coefficient"
+        subtitle={`${coefficient.transaction_id} · worst-cost TRAIN scenario ${coefficient.scenario_date} · selected slot ${coefficient.selected_slot}`}
       >
-        {demo.error ? (
-          <ErrorState error={demo.error} />
-        ) : !demo.data ? (
-          <Loading />
-        ) : (
-          <>
-            <MathBlock
-              math={String.raw`\min\ 3x+2y\quad\text{s.t. }x+y\ge1.5,\quad x,y\in\{0,1\}`}
-            />
-            <div className="root-derivation">
-              <span>ROOT LP</span>
-              <p>y is cheaper (2 versus 3), so set y = 1 first.</p>
-              <MathBlock math={String.raw`x+1\ge1.5\Rightarrow x\ge0.5`} />
-              <MathBlock
-                math={String.raw`x=0.5,\ y=1\Rightarrow3(0.5)+2(1)=3.5`}
-              />
-              <b>ROOT LOWER BOUND = 3.5</b>
-            </div>
-            <div className="toolbar">
-              <button
-                className="button"
-                disabled={depth === 0}
-                onClick={() => {
-                  setDepth(depth - 1);
-                  setSelected("root");
-                }}
-              >
-                Previous level
-              </button>
-              <button
-                className="button primary"
-                disabled={depth === 2}
-                onClick={() => setDepth(depth + 1)}
-              >
-                Reveal branch <GitBranch size={15} />
-              </button>
-              <span className="caption">Level {depth} / 2</span>
-            </div>
-            <BranchWalkthrough
-              nodes={demo.data.nodes}
-              depth={depth}
-              selected={selected}
-              onSelect={setSelected}
-            />
-            {depth === 2 && (
-              <div className="certificate">
-                <span>GLOBAL CERTIFICATE</span>
-                <MathBlock math={String.raw`x^*=1,\quad y^*=1,\quad f^*=5`} />
-                <p>
-                  All other branches are infeasible or closed. No unexplored
-                  node has a lower bound below 5. Branch-and-Bound has proved
-                  that no better integer solution exists.
-                </p>
-              </div>
-            )}
-          </>
+        <div className="coefficient-worked" id="trace-3">
+          <MathBlock math={String.raw`c_{its}=10^{-9}g_i p_{ts}`} />
+          <div>
+            <span>{num(coefficient.gas_used)} gas</span>
+            <b>×</b>
+            <span>{price(coefficient.gas_price_gwei)} gwei / gas</span>
+            <b>×</b>
+            <span>10⁻⁹ ETH / gwei</span>
+            <b>=</b>
+            <strong>{eth(coefficient.coefficient_eth)} ETH</strong>
+          </div>
+        </div>
+        <p className="formula-caption">
+          This is one transaction’s contribution. Summing the 30 selected
+          coefficients gives {eth(coefficient.portfolio_cost_eth)} ETH for this
+          complete historical scenario.
+        </p>
+      </Section>
+
+      <Section
+        title="4 · The schedule generates 365 scenario costs"
+        subtitle="Expected cost is the probability-weighted average of the same fixed schedule"
+      >
+        <div className="expectation-worked" id="trace-4">
+          <MathBlock
+            math={String.raw`C_s(x)=10^{-9}\sum_i\sum_t g_i p_{ts}x_{it}`}
+          />
+          <ArrowRight aria-hidden="true" />
+          <MathBlock
+            math={String.raw`\mathbb E[C(x)]=\sum_s q_sC_s(x)=${objective.expected_cost_eth.toFixed(9)}\ \mathrm{ETH}`}
+          />
+        </div>
+        <p className="explanation">
+          Gas use and assignments are fixed. Only the historical slot-price
+          path changes from one TRAIN day to another.
+        </p>
+      </Section>
+
+      <Section
+        title="5 · CVaR isolates the expensive tail"
+        subtitle={
+          risk.in_objective
+            ? "The tail term participates directly in this optimization."
+            : "λ = 0: VaR and CVaR are evaluated after the solve and do not affect the objective."
+        }
+      >
+        <div className="cvar-worked" id="trace-5">
+          <MathBlock
+            math={String.raw`\xi_s=\max(C_s-\eta,0),\qquad \operatorname{CVaR}_\alpha=\eta+\frac{\sum_s q_s\xi_s}{1-\alpha}`}
+          />
+          <div className="substitution">
+            <span>η = {eth(risk.eta_eth)}</span>
+            <span>Σ qₛξₛ = {eth(risk.weighted_excess_eth)}</span>
+            <span>1 / (1 − α) = {risk.tail_multiplier.toFixed(2)}</span>
+            <strong>CVaR = {eth(risk.cvar_eth)} ETH</strong>
+          </div>
+        </div>
+        <p className="formula-caption">
+          {risk.positive_excess_scenarios} scenarios lie strictly above η. The
+          fractional boundary mass is retained, so the displayed tail mass is
+          exactly {(1 - calculation.alpha).toFixed(2)}.
+        </p>
+        <div className="table-scroll">
+          <table aria-label="CVaR tail scenarios">
+            <thead>
+              <tr>
+                <th>TRAIN day</th>
+                <th>Cₛ(x) ETH</th>
+                <th>η ETH</th>
+                <th>ξₛ ETH</th>
+                <th>Tail mass</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tail.map((point) => (
+                <tr key={point.date}>
+                  <td>{point.date}</td>
+                  <td>{eth(point.cost_eth)}</td>
+                  <td>{eth(point.eta_eth)}</td>
+                  <td>{eth(point.xi_eth)}</td>
+                  <td>{point.tail_mass.toFixed(6)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <button className="button scenario-toggle" onClick={() => setAllScenarios(!allScenarios)}>
+          {allScenarios ? "Hide all scenario outputs" : "Show all 365 scenario outputs"}
+        </button>
+        {allScenarios && (
+          <motion.div
+            className="table-scroll full-scenario-table"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <table aria-label="All TRAIN scenario outputs">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>TRAIN day</th>
+                  <th>Cost ETH</th>
+                  <th>Excess ξₛ</th>
+                  <th>Cumulative probability</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scenarios.map((point) => (
+                  <tr key={point.date}>
+                    <td>{point.rank}</td>
+                    <td>{point.date}</td>
+                    <td>{eth(point.cost_eth)}</td>
+                    <td>{eth(point.xi_eth)}</td>
+                    <td>{point.cumulative_probability.toFixed(6)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </motion.div>
         )}
       </Section>
+
       <Section
-        title="A second pruning mechanism"
-        subtitle="A node may be feasible and still be useless"
+        title="6 · Numerical objective"
+        subtitle="The solver minimizes expected expenditure plus the selected price of tail risk"
       >
-        <BoundPruningExample />
-      </Section>
-      <Section
-        title="Branch-and-Bound vocabulary"
-        subtitle="The terms used in solver diagnostics"
-      >
-        <div className="term-grid">
-          {terms.map(([a, b]) => (
-            <div key={a}>
-              <b>{a}</b>
-              <p>{b}</p>
-            </div>
-          ))}
-        </div>
-      </Section>
-      <Section
-        title="The same logic at empirical scale"
-        subtitle="The teaching tree explains the concept, not the production trace"
-      >
-        <div className="scale-comparison">
+        <div className="objective-substitution" id="trace-6">
+          <MathBlock
+            math={String.raw`\min\;\mathbb E[C]+\lambda\operatorname{CVaR}_\alpha(C)`}
+          />
           <div>
-            <span>TOY</span>
-            <b>2</b>
-            <p>binary variables</p>
-          </div>
-          <ArrowRight />
-          <div>
-            <span>GASOPS</span>
-            <b>{meta.binary_decisions}</b>
-            <p>binaries · {meta.train_days} scenarios · CVaR auxiliaries</p>
+            <span>{eth(objective.expected_cost_eth)}</span>
+            <b>+</b>
+            <span>{calculation.lambda_risk} × {eth(calculation.cvar_eth)}</span>
+            <b>=</b>
+            <strong>{eth(objective.objective_value_eth)} ETH</strong>
           </div>
         </div>
-        <SearchSpaceNote binaries={meta.binary_decisions} />
-        <div className="solver-pipeline">
-          {[
-            "Business inputs",
-            "MILP formulation",
-            "LP relaxation",
-            "Branch & bound",
-            "Integer candidate",
-            "Bound comparison",
-            "Optimality gap",
-            "Certified optimum",
-            "Schedule",
-          ].map((x, i) => (
-            <div key={x}>
-              <span>{String(i + 1).padStart(2, "0")}</span>
-              <b>{x}</b>
-              {i < 8 && <ArrowRight size={14} />}
-            </div>
-          ))}
-        </div>
-        <div className="evaluation-pipeline">
-          <b>Schedule</b>
-          <ArrowRight />
-          <span>TRAIN distribution</span>
-          <ArrowRight />
-          <span>Expected cost / VaR / CVaR</span>
-          <ArrowRight />
-          <span>Frozen TEST evaluation</span>
-        </div>
       </Section>
+
       <Section
-        title="Check your understanding"
-        subtitle="Three short checks; answers stay on this page"
+        title="7 · HiGHS optimality certificate"
+        subtitle="Branch-and-Bound is reported from the real solve, without a fabricated teaching tree"
       >
-        <KnowledgeCheck />
+        <div className="certificate-live" id="trace-7">
+          <div><span>Status</span><b>{solver.status}</b></div>
+          <div><span>Incumbent</span><b>{eth(objective.objective_value_eth)} ETH</b></div>
+          <div><span>Global bound</span><b>{eth(solver.objective_bound_eth)} ETH</b></div>
+          <div><span>Relative gap</span><b>{solver.optimality_gap == null ? "—" : solver.optimality_gap.toExponential(2)}</b></div>
+          <div><span>B&B nodes</span><b>{solver.node_count ?? "—"}</b></div>
+          <div><span>Solve time</span><b>{solver.solve_seconds == null ? "—" : solver.solve_seconds.toFixed(3) + " s"}</b></div>
+        </div>
+        <p className="explanation">
+          {solver.node_count != null && solver.node_count <= 1
+            ? "HiGHS certified this optimum at the root node. Presolve, the LP relaxation and the solver’s cuts closed the bound without requiring a visible branch tree."
+            : solver.node_count != null && solver.node_count > 1
+              ? `HiGHS explored ${solver.node_count} Branch-and-Bound nodes before the incumbent and global lower bound met at the reported tolerance.`
+              : "The solver returned an optimal certificate, but this runtime did not expose a node count."}
+        </p>
+        <MathBlock
+          math={String.raw`LB=${solver.objective_bound_eth == null ? "\text{not exposed}" : solver.objective_bound_eth.toFixed(9)},\qquad UB=${objective.objective_value_eth.toFixed(9)},\qquad gap=${solver.optimality_gap == null ? "\text{not exposed}" : solver.optimality_gap.toExponential(2)}`}
+        />
+      </Section>
+
+      <Section
+        title="8 · Optimal execution schedule"
+        subtitle={`${trace.solution.assignment_count} transactions assigned once · ${trace.solution.changed_vs_mean_price} changed versus mean-price`}
+      >
+        <div id="trace-8">
+          <ScheduleMatrix
+            workload={workload}
+            schedule={calculation.schedule}
+            onSelect={() => undefined}
+          />
+        </div>
+        <div className="trace-final">
+          <span>Schedule ID</span>
+          <code>{trace.solution.schedule_id}</code>
+          <Link className="button" to="/optimizer">
+            Return to calculator <ArrowRight size={15} />
+          </Link>
+        </div>
       </Section>
     </>
   );

@@ -15,9 +15,8 @@ engine, datasets, archived schedules and TRAIN/TEST protocol are unchanged.
   panel at 1280 px; long equations scroll inside their own region on mobile.
 - Improved the matrix example, dimension summary, gradient/Hessian comparison
   and diagrams for the CVaR positive part and LP versus binary feasibility.
-- Clarified the Branch-and-Bound tree hierarchy, selected-node inspector,
-  root calculations and optimality certificate. The certificate appears only
-  when the full teaching tree has been revealed.
+- Added a responsive calculation trace for the actual GasOps solve, including
+  the CVaR tail table, numerical objective and HiGHS optimality certificate.
 - Copy model now copies the complete LaTeX formulation and reports clipboard
   failure instead of falsely confirming success. Internal navigation preserves
   the selected workspace result.
@@ -31,7 +30,7 @@ The Phase 2 byte regression confirms **23/23 protected files unchanged**.
 The browser suite includes the existing complete application journey and three
 responsive journeys at **1920, 1280 and 390 px**. Each responsive journey visits
 all ten routes, opens all nine math chapters, checks page overflow and KaTeX
-errors, and exercises the complete teaching tree. Captures wait for chapter
+errors, and exercises the complete calculation trace. Captures wait for chapter
 content and transition completion. Desktop checks also ensure that the complete
 formulation fits without horizontal scrolling.
 
@@ -39,7 +38,7 @@ Production browser result: **4 passed** on `http://localhost:3000` in 2.4 minute
 
 Reviewed captures are generated in `output/playwright/polish-*.png`; generated
 screenshots and browser reports are gitignored. Mobile mathematical expressions
-and the teaching tree deliberately use local horizontal scrolling when needed.
+and the scenario tables use local horizontal scrolling when needed.
 
 The build retains a non-blocking Vite advisory for the main JavaScript bundle
 (about 363 kB gzip). No backend changes were needed for this pass; the Python

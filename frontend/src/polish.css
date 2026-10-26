@@ -132,7 +132,6 @@ body {
   font-size: 11px;
   line-height: 1.7;
 }
-
 /* Scope layout selectors to direct children so KaTeX's internal spans stay intact. */
 .math {
   min-width: 0;
@@ -572,242 +571,8 @@ body {
 .positive-part-figure figcaption {
   text-align: center;
 }
-.relaxation-banner {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-}
-.relaxation-banner p {
-  font-size: 14px;
-  line-height: 1.75;
-}
-.relaxation-banner > .math:last-child {
-  grid-column: 1/-1;
-  background: #171d29;
-}
-.optimality-strip div {
-  min-width: 0;
-}
-.optimality-strip span {
-  font-size: 12px;
-}
-.optimality-strip b {
-  font-size: 15px;
-  overflow-wrap: anywhere;
-}
-.root-derivation {
-  display: grid;
-  grid-template-columns: 100px minmax(0, 1fr);
-  padding: 24px;
-  background: #161c28;
-  gap: 16px;
-  border: 1px solid #30394a;
-  border-radius: 6px;
-}
-.root-derivation > span {
-  font-size: 12px;
-  align-self: start;
-}
-.root-derivation > p {
-  font-size: 14px;
-}
-.root-derivation > .math {
-  grid-column: 2;
-  padding: 6px 0;
-  font-size: 17px;
-}
-.root-derivation > b {
-  grid-column: 2;
-  font-size: 13px;
-  border-top: 1px solid var(--line);
-  padding-top: 18px;
-}
-.branch-layout {
-  grid-template-columns: minmax(0, 1fr) 300px;
-  gap: 24px;
-}
-.branch-tree {
-  padding: 28px 16px 10px;
-  background: #151b27;
-  overflow-x: auto;
-  scrollbar-width: thin;
-}
-.branch-level {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0;
-  min-width: 580px;
-  margin-bottom: 58px;
-}
-.branch-level.level-0 .branch-node {
-  grid-column: 2/4;
-  width: 180px;
-}
-.branch-level.level-1 .branch-node {
-  grid-column: span 2;
-  width: 180px;
-}
-.branch-level.level-2 .branch-node:first-child {
-  grid-column: 3;
-}
-.branch-level.level-2 .branch-node:last-child {
-  grid-column: 4;
-}
-.branch-node {
-  justify-self: center;
-  width: calc(100% - 10px);
-  max-width: 180px;
-  min-width: 0;
-  padding: 17px 10px;
-  border-radius: 6px;
-  background: #1e2533;
-}
-.branch-node > span {
-  font-size: 12px;
-}
-.branch-node > small {
-  font-size: 12px;
-}
-.branch-node > em {
-  font-size: 10px;
-  line-height: 1.5;
-}
-.branch-node.pruned {
-  border-style: dashed;
-}
-.branch-node.pruned > b {
-  color: #dabd91;
-  font-size: 16px;
-}
-.branch-level:not(.level-0)::before {
-  width: 50%;
-  left: 25%;
-  top: -29px;
-  border-color: #7c6a9a;
-}
-.branch-level:not(.level-0)::after {
-  content: "";
-  position: absolute;
-  height: 29px;
-  top: -58px;
-  left: 50%;
-  border-left: 1px solid #7c6a9a;
-}
-.branch-level.level-2::before {
-  width: 25%;
-  left: 62.5%;
-}
-.branch-level.level-2::after {
-  left: 75%;
-}
-.branch-level:not(.level-0) .branch-node::before {
-  content: "";
-  position: absolute;
-  height: 29px;
-  top: -30px;
-  left: 50%;
-  border-left: 1px solid #7c6a9a;
-}
-.node-inspector {
-  align-self: start;
-  padding: 24px;
-  border: 1px solid #3e3650;
-  border-radius: 6px;
-  background: #1c2130;
-}
-.node-inspector h3 {
-  font-size: 20px;
-  line-height: 1.45;
-}
-.node-inspector ol {
-  font-size: 14px;
-  padding-left: 18px;
-  line-height: 1.8;
-}
-.node-inspector li + li {
-  margin-top: 12px;
-}
-.node-inspector dl {
-  font-size: 13px;
-  margin-top: 20px;
-}
-.node-inspector > strong {
-  font-size: 13px;
-  line-height: 1.65;
-}
-.certificate p,
-.bound-example p,
-.bound-verdict p,
-.scale-note p,
-.knowledge-check p,
-.term-grid p {
-  font-size: 13px;
-  line-height: 1.75;
-}
-.certificate {
-  border-radius: 6px;
-  padding: 28px;
-}
-.term-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-.term-grid b {
-  font-size: 14px;
-}
-.solver-pipeline {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-.solver-pipeline > div {
-  padding: 18px;
-  min-height: 90px;
-  border-bottom: 1px solid var(--line);
-}
-.solver-pipeline span {
-  font-size: 11px;
-  color: #a58cce;
-}
-.solver-pipeline b {
-  font-size: 13px;
-  font-weight: 500;
-}
-.solver-pipeline svg {
-  right: 12px;
-  top: 20px;
-}
-.evaluation-pipeline {
-  flex-wrap: wrap;
-  font-size: 13px;
-  line-height: 1.7;
-}
-.knowledge-check {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-.knowledge-check p {
-  min-height: 96px;
-}
-.knowledge-check button {
-  font-size: 13px;
-  min-height: 44px;
-  line-height: 1.75;
-}
 
 @media (max-width: 1450px) {
-  .branch-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .node-inspector {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px 24px;
-  }
-  .node-inspector h3 {
-    margin: 0;
-  }
-  .node-inspector ol {
-    grid-column: 1;
-    grid-row: 2/4;
-  }
-  .node-inspector dl {
-    margin-top: 0;
-  }
   .model-layout.deep-dive {
     grid-template-columns: 190px minmax(0, 1fr);
     gap: 20px;
@@ -859,10 +624,6 @@ body {
   }
   .method-comparison {
     grid-template-columns: 1fr;
-  }
-  .term-grid,
-  .knowledge-check {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 @media (max-width: 700px) {
@@ -922,11 +683,7 @@ body {
     padding: 10px 7px;
     font-size: 12px;
   }
-  .objective-blocks,
-  .relaxation-banner,
-  .term-grid,
-  .knowledge-check,
-  .optimality-strip {
+  .objective-blocks{
     grid-template-columns: minmax(0, 1fr);
   }
   .objective-blocks > span {
@@ -939,33 +696,6 @@ body {
   .relaxation-figure,
   .positive-part-figure {
     padding: 14px;
-  }
-  .root-derivation {
-    grid-template-columns: minmax(0, 1fr);
-    padding: 18px;
-  }
-  .root-derivation > .math,
-  .root-derivation > b {
-    grid-column: 1;
-  }
-  .node-inspector {
-    display: block;
-  }
-  .node-inspector h3 {
-    margin-block: 16px;
-  }
-  .branch-tree {
-    padding: 22px 12px 0;
-  }
-  .solver-pipeline {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .evaluation-pipeline > span {
-    white-space: normal;
-  }
-  .knowledge-check p {
-    min-height: 0;
-    margin-bottom: 16px;
   }
   .metric strong {
     font-size: 20px;

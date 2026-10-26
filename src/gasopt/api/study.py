@@ -114,25 +114,100 @@ class Study:
                 **{key: int(row[key]) for key in ("num_variables", "num_binary_variables", "num_constraints")}}
         return self._result(self.schedules[strategy], risk, self.config.alpha, data, "archived", strategy)
 
-    def _result(self, schedule, risk, alpha, data, origin, strategy, duration=None):
+    def _result(self, schedule, risk, alpha, data, origin, strategy, duration=None,
+                solver_eta=None, solver_cvar=None):
         costs = scenario_costs_eth(self.transactions, self.train, schedule)
+        result_id = schedule_id(schedule)
+        points = cost_points(costs, alpha)
+        eta = float(data["var_eth"])
+        cvar = float(data["cvar_eth"])
+        weighted_excess = sum(point["probability"] * point["xi_eth"] for point in points)
+        example_tx = self.transactions[0]
+        worst_day = max(costs, key=costs.get)
+        worst_scenario = next(s for s in self.train if s.id == worst_day)
+        example_slot = schedule[example_tx.id]
+        example_price = worst_scenario.prices_gwei[example_slot - 1]
+        example_cost = 1e-9 * example_tx.gas_used * example_price
+        changed = sum(schedule[k] != v for k, v in self.schedules["mean_price"].items())
+        binaries = int(data["num_binary_variables"])
+        variables = int(data["num_variables"])
+        constraints = int(data["num_constraints"])
+        node_count = data.get("node_count")
+        trace = {
+            "inputs": {
+                "dataset_id": self.dataset_id,
+                "transactions": len(self.transactions),
+                "train_scenarios": len(self.train),
+                "slots": len(self.train[0].prices_gwei),
+                "lambda_risk": risk,
+                "alpha": alpha,
+                "scenario_probability": self.train[0].probability,
+                "tail_scenario_equivalents": (1 - alpha) * len(self.train),
+            },
+            "model": {
+                "binary_variables": binaries,
+                "continuous_variables": variables - binaries,
+                "total_variables": variables,
+                "assignment_constraints": len(self.transactions),
+                "excess_constraints": constraints - len(self.transactions),
+                "total_constraints": constraints,
+            },
+            "coefficient_example": {
+                "transaction_id": example_tx.id,
+                "scenario_date": worst_day,
+                "selected_slot": example_slot,
+                "gas_used": example_tx.gas_used,
+                "gas_price_gwei": example_price,
+                "conversion": 1e-9,
+                "coefficient_eth": example_cost,
+                "portfolio_cost_eth": costs[worst_day],
+            },
+            "risk": {
+                "in_objective": risk > 0,
+                "eta_eth": eta,
+                "solver_eta_eth": solver_eta,
+                "tail_multiplier": 1 / (1 - alpha),
+                "positive_excess_scenarios": sum(point["xi_eth"] > 0 for point in points),
+                "weighted_excess_eth": weighted_excess,
+                "cvar_eth": cvar,
+                "solver_cvar_eth": solver_cvar,
+            },
+            "objective": {
+                "expected_cost_eth": float(data["expected_cost_eth"]),
+                "risk_penalty_eth": risk * cvar,
+                "objective_value_eth": float(data["objective_value_eth"]),
+            },
+            "solver": {
+                "status": data["solver_status"],
+                "objective_bound_eth": data.get("objective_bound_eth"),
+                "optimality_gap": data.get("optimality_gap"),
+                "node_count": node_count,
+                "solve_seconds": duration,
+                "origin": origin,
+            },
+            "solution": {
+                "assignment_count": len(schedule),
+                "schedule_id": result_id,
+                "changed_vs_mean_price": changed,
+            },
+        }
         return {**data, "origin": origin, "dataset_id": self.dataset_id, "strategy": strategy,
-                "schedule_id": schedule_id(schedule), "schedule": schedule.copy(),
+                "schedule_id": result_id, "schedule": schedule.copy(),
                 "lambda_risk": risk, "alpha": alpha,
                 "exploratory": risk not in self.config.lambda_grid or alpha != self.config.alpha,
-                "tail_scenario_count": (1-alpha)*len(self.train), "node_count": None,
+                "tail_scenario_count": (1-alpha)*len(self.train), "node_count": node_count,
                 "assignments": [{"transaction_id": tx.id, "slot": schedule[tx.id]} for tx in self.transactions],
-                "scenario_costs": cost_points(costs, alpha),
-                "changed_vs_mean_price": sum(schedule[k] != v for k, v in self.schedules["mean_price"].items()),
-                "solve_seconds": duration}
+                "scenario_costs": points, "changed_vs_mean_price": changed,
+                "solve_seconds": duration, "calculation_trace": trace}
 
-    def solve(self, risk, alpha):
-        r, origin, duration = self.optimizer.solve(risk, alpha)
+    def solve(self, risk, alpha, force_recompute=False):
+        r, origin, duration = self.optimizer.solve(risk, alpha, force_recompute)
         data = {key: getattr(r, key) for key in ("expected_cost_eth", "cvar_eth", "worst_case_cost_eth",
             "objective_value_eth", "solver_status", "objective_bound_eth", "optimality_gap",
-            "num_variables", "num_binary_variables", "num_constraints")}
+            "num_variables", "num_binary_variables", "num_constraints", "node_count")}
         data["var_eth"] = r.eta_eth
-        return self._result(r.schedule, risk, alpha, data, origin, f"live_lambda_{risk:g}", duration)
+        return self._result(r.schedule, risk, alpha, data, origin, f"live_lambda_{risk:g}", duration,
+                            r.solver_eta_eth, r.solver_cvar_eth)
 
     def is_exploratory(self, schedule, alpha):
         return alpha != self.config.alpha or schedule not in self.schedules.values()

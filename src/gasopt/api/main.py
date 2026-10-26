@@ -11,7 +11,6 @@ from gasopt.api.study import Study
 from gasopt.api.schemas import (SolveRequest, SolveResponse, ScheduleRequest, ComparisonRequest,
                                ScenarioRequest, CalculatorRequest, EvaluationResponse)
 from gasopt.api.serialization import records
-from gasopt.api.education import branch_demo
 
 def create_app(root: Path | None = None, study: Study | None = None):
     root = root or Path(os.environ.get('GASOPS_ROOT', Path(__file__).resolve().parents[3]))
@@ -72,7 +71,7 @@ def create_app(root: Path | None = None, study: Study | None = None):
         return records(snapshot(request).train_table.drop(columns=['schedule']))
     @app.post('/api/v1/optimization/solve', response_model=SolveResponse)
     def solve(body: SolveRequest, request: Request):
-        try: return snapshot(request).solve(body.lambda_risk, body.alpha)
+        try: return snapshot(request).solve(body.lambda_risk, body.alpha, body.force_recompute)
         except RuntimeError as exc:
             logging.exception('Live solve failed')
             raise HTTPException(503, 'Live solve failed. '+str(exc)+'. Archived Phase 2 results remain available explicitly.') from exc
@@ -88,10 +87,6 @@ def create_app(root: Path | None = None, study: Study | None = None):
     @app.post('/api/v1/analysis/calculator')
     def calculator(body: CalculatorRequest, request: Request):
         return snapshot(request).calculator(body.transaction_id,body.day,body.slot)
-    @app.get('/api/v1/education/branch-and-bound')
-    def education(request: Request):
-        snapshot(request)
-        return branch_demo()
     return app
 
 app = create_app()
