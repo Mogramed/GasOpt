@@ -27,9 +27,13 @@ test('offline study → live solve → comparison → educational views → froz
  await expect(page.getByText(/λ = 0.05 · α = 0.95/)).toBeVisible();
  await page.getByRole('link',{name:'Open calculation trace'}).click();
  await expect(page.getByRole('heading',{name:'One solve, reconstructed from inputs to certificate'})).toBeVisible();
- await expect(page.getByRole('heading',{name:'5 · CVaR isolates the expensive tail'})).toBeVisible();
- await expect(page.getByRole('table',{name:'CVaR tail scenarios'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:/Choose one admissible two-hour slot/})).toBeVisible();
  await expect(page.getByText(/certified this optimum at the root node/i)).toBeVisible();
+ await expect(page.getByRole('heading',{name:/HiGHS mixed-integer optimizer/})).toBeVisible();
+ await expect(page.locator('.solver-stage-list article')).toHaveCount(9);
+ await expect(page.locator('.solver-stage-list')).toContainText('Independent numerical audit');
+ await expect(page.locator('.solver-telemetry')).toContainText('Max integrality violation');
+ await page.getByRole('button',{name:/Transaction explorer/}).click();
  await page.getByLabel('Transaction to explain').selectOption('treasury_29');
  await page.getByRole('button',{name:'Build the real walkthrough'}).click();
  await expect(page.getByRole('heading',{name:/treasury_29 enters the MILP/i})).toBeVisible();
@@ -39,6 +43,9 @@ test('offline study → live solve → comparison → educational views → froz
  await page.screenshot({path:'../output/playwright/11-transaction-walkthrough.png',fullPage:true});
  await page.locator('.raw-decision-output summary').click();
  await expect(page.locator('.raw-decision-output')).toContainText('scenario_outputs');
+ await page.getByRole('button',{name:/Numerical outputs/}).click();
+ await expect(page.getByRole('heading',{name:'5 · CVaR isolates the expensive tail'})).toBeVisible();
+ await expect(page.getByRole('table',{name:'CVaR tail scenarios'})).toBeVisible();
  await page.getByRole('link',{name:'Return to calculator'}).click();
  await page.getByRole('button',{name:'Compare schedules',exact:true}).click();
  await expect(page.getByTestId('comparison-summary')).toContainText('11');
@@ -95,7 +102,8 @@ test('offline study → live solve → comparison → educational views → froz
  await expect(page.locator('.results-table')).toContainText('28.47%');
  await page.screenshot({path:'../output/playwright/06-results.png',fullPage:true});
  await page.getByRole('link',{name:'Calculation trace',exact:true}).click();
- await expect(page.getByRole('heading',{name:'7 · HiGHS optimality certificate'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'7 · HiGHS method and complete solver trace'})).toBeVisible();
+ await page.getByRole('button',{name:/Numerical outputs/}).click();
  await page.getByRole('button',{name:'Show all 365 scenario outputs'}).click();
  await expect(page.getByRole('table',{name:'All TRAIN scenario outputs'}).getByRole('row')).toHaveCount(366);
  await expect(page.locator('.katex-error')).toHaveCount(0);

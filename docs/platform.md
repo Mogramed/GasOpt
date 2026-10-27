@@ -173,6 +173,13 @@ full objective across all 365 TRAIN scenarios. The UI explicitly treats CVaR as
 a joint portfolio measure; the one-transaction comparison complements, but does
 not replace, the global HiGHS optimality certificate.
 
+The solver section identifies the exact HiGHS version and configuration, then
+shows nine chronological phases from input validation through the independent
+post-solve audit. Iteration counts, infeasibility measures, node count, incumbent,
+dual bound and gap come from the real highspy response. Presolve reductions,
+individual cuts and heuristic events are labelled as internal when highspy does
+not expose them; the UI never manufactures an event or branch log.
+
 ## Docker and errors
 
 nginx exposes only `127.0.0.1:3000`, proxies `/api` to the private backend, and

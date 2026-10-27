@@ -140,6 +140,20 @@ def _solve(
         objective_bound_eth=bound,
         optimality_gap=gap,
         node_count=int(info.mip_node_count),
+        highs_version=solver.version(),
+        simplex_iteration_count=(
+            int(info.simplex_iteration_count) if info.simplex_iteration_count >= 0 else None),
+        ipm_iteration_count=(
+            int(info.ipm_iteration_count) if info.ipm_iteration_count >= 0 else None),
+        max_primal_infeasibility=(
+            float(info.max_primal_infeasibility)
+            if isfinite(info.max_primal_infeasibility) else None),
+        max_dual_infeasibility=(
+            float(info.max_dual_infeasibility)
+            if isfinite(info.max_dual_infeasibility) else None),
+        max_integrality_violation=(
+            float(info.max_integrality_violation)
+            if isfinite(info.max_integrality_violation) else None),
     )
 
 

@@ -88,6 +88,15 @@ def test_live_calculation_trace_is_numerically_complete(client, study):
     assert trace.solver['node_count'] == live.node_count
     assert live.node_count is not None
     assert trace.solver['objective_bound_eth'] == pytest.approx(live.objective_value_eth)
+    assert trace.solver['method']['name'] == 'HiGHS mixed-integer optimizer'
+    assert trace.solver['method']['version']
+    assert trace.solver['method']['threads'] == 1
+    assert [stage['step'] for stage in trace.solver['stages']] == list(range(1, 10))
+    assert trace.solver['stages'][5]['label'] == 'Branch-and-Bound'
+    assert str(live.node_count) in trace.solver['stages'][5]['output']
+    assert trace.solver['telemetry']['simplex_iteration_count'] >= 0
+    assert trace.solver['telemetry']['ipm_iteration_count'] is None
+    assert trace.solver['telemetry']['objective_audit_residual_eth'] == pytest.approx(0, abs=1e-10)
     assert trace.solution['assignment_count'] == 30
 
 

@@ -115,13 +115,15 @@ for (const width of [1920, 1280, 390]) {
       page.getByRole("heading", { name: "One solve, reconstructed from inputs to certificate" }),
     ).toBeVisible();
     await expect(page.locator(".certificate-live")).toContainText("Global bound");
-    await expect(page.locator(".trace-final")).toBeVisible();
+    await page.getByRole("button", { name: /Transaction explorer/ }).click();
     await page.getByLabel("Transaction to explain").selectOption("treasury_29");
     await page.getByRole("button", { name: "Build the real walkthrough" }).click();
     for (let step = 2; step <= 6; step++) {
       await page.getByRole("button", { name: new RegExp(`Reveal step ${step}`) }).click();
     }
     await expect(page.getByRole("table", { name: "Transaction slot objective comparison" })).toBeVisible();
+    await page.getByRole("button", { name: /Numerical outputs/ }).click();
+    await expect(page.locator(".trace-final")).toBeVisible();
     await expect(page.locator("main > div").first()).toHaveCSS("opacity", "1");
     expect(
       await page.evaluate(
@@ -131,6 +133,11 @@ for (const width of [1920, 1280, 390]) {
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({
       path: `../output/playwright/polish-solver-${width}.png`,
+      fullPage: true,
+    });
+    await page.getByRole("button", { name: /Mathematical method/ }).click();
+    await page.screenshot({
+      path: `../output/playwright/polish-solver-method-${width}.png`,
       fullPage: true,
     });
     await page.locator(".certificate-live").screenshot({

@@ -98,6 +98,37 @@ export type Result = {
       node_count: number | null;
       solve_seconds: number | null;
       origin: "live" | "cached_live" | "archived";
+      method: {
+        name: string;
+        version: string | null;
+        problem_class: string;
+        algorithm: string;
+        lp_engine: string;
+        presolve: string;
+        threads: number;
+        random_seed: number;
+        relative_gap_tolerance: number;
+        absolute_gap_tolerance: number;
+        mip_feasibility_tolerance: number;
+        primal_feasibility_tolerance: number;
+        dual_feasibility_tolerance: number;
+      };
+      telemetry: {
+        simplex_iteration_count: number | null;
+        ipm_iteration_count: number | null;
+        max_primal_infeasibility: number | null;
+        max_dual_infeasibility: number | null;
+        max_integrality_violation: number | null;
+        objective_audit_residual_eth: number;
+      };
+      stages: {
+        step: number;
+        label: string;
+        status: string;
+        observed: boolean;
+        mathematics: string;
+        output: string;
+      }[];
     };
     solution: {
       assignment_count: number;

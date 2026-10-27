@@ -1175,6 +1175,7 @@ function TransactionDecisionLab({
 export function SolverPage() {
   const { calculation, workload } = useWorkspace();
   const [allScenarios, setAllScenarios] = useState(false);
+  const [traceView, setTraceView] = useState<"method" | "transaction" | "outputs">("method");
 
   if (!calculation) {
     return (
@@ -1224,23 +1225,63 @@ export function SolverPage() {
         }
       />
 
-      <nav className="trace-index" aria-label="Calculation steps">
-        {[
-          "Inputs",
-          "MILP",
-          "Transaction",
-          "Scenarios",
-          "CVaR",
-          "Objective",
-          "Certificate",
-          "Schedule",
-        ].map((label, index) => (
-          <a key={label} href={"#trace-" + (index + 1)}>
-            <span>{String(index + 1).padStart(2, "0")}</span>
-            {label}
-          </a>
-        ))}
+      <nav className="trace-view-tabs" aria-label="Calculation trace views">
+        <button
+          className={traceView === "method" ? "active" : ""}
+          aria-pressed={traceView === "method"}
+          onClick={() => setTraceView("method")}
+        >
+          <span>01</span>
+          <b>Mathematical method</b>
+          <small>Problem, MILP, objective and HiGHS</small>
+        </button>
+        <button
+          className={traceView === "transaction" ? "active" : ""}
+          aria-pressed={traceView === "transaction"}
+          onClick={() => setTraceView("transaction")}
+        >
+          <span>02</span>
+          <b>Transaction explorer</b>
+          <small>One real decision, explained step by step</small>
+        </button>
+        <button
+          className={traceView === "outputs" ? "active" : ""}
+          aria-pressed={traceView === "outputs"}
+          onClick={() => setTraceView("outputs")}
+        >
+          <span>03</span>
+          <b>Numerical outputs</b>
+          <small>Scenarios, tail risk and final schedule</small>
+        </button>
       </nav>
+
+      {traceView === "method" && (
+      <motion.div
+        className="trace-view-content"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+      <div className="trace-problem-brief">
+        <div className="trace-problem-copy">
+          <span className="eyebrow">THE DECISION BEING SOLVED</span>
+          <h2>Choose one admissible two-hour slot for every transaction before gas prices are known</h2>
+          <p>
+            The same portfolio schedule faces all 365 historical TRAIN price
+            paths. HiGHS searches the binary assignments that minimize expected
+            expenditure and, when λ is positive, the expensive tail.
+          </p>
+        </div>
+        <div className="trace-brief-flow" aria-label="Optimization problem flow">
+          <div><span>DECISION</span><b>xᵢₜ</b><small>transaction → slot</small></div>
+          <ArrowRight aria-hidden="true" />
+          <div><span>UNCERTAINTY</span><b>Cₛ(x)</b><small>365 scenario costs</small></div>
+          <ArrowRight aria-hidden="true" />
+          <div><span>OPTIMIZE</span><b>E[C] + λCVaR</b><small>cost + tail exposure</small></div>
+        </div>
+        <MathBlock
+          math={String.raw`\min_{x,\eta,\xi}\left\{\sum_s q_s C_s(x)+\lambda\left(\eta+\frac{1}{1-\alpha}\sum_s q_s\xi_s\right)\right\}`}
+        />
+      </div>
 
       <Section
         title="1 · Inputs fixed before optimization"
@@ -1292,8 +1333,25 @@ export function SolverPage() {
         </p>
       </Section>
 
-      <TransactionDecisionLab calculation={calculation} workload={workload} />
+      </motion.div>
+      )}
 
+      {traceView === "transaction" && (
+        <motion.div
+          className="trace-view-content"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <TransactionDecisionLab calculation={calculation} workload={workload} />
+        </motion.div>
+      )}
+
+      {traceView === "outputs" && (
+      <motion.div
+        className="trace-view-content"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
       <Section
         title="4 · The schedule generates 365 scenario costs"
         subtitle="Expected cost is the probability-weighted average of the same fixed schedule"
@@ -1313,6 +1371,15 @@ export function SolverPage() {
         </p>
       </Section>
 
+      </motion.div>
+      )}
+
+      {traceView === "outputs" && (
+      <motion.div
+        className="trace-view-content"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
       <Section
         title="5 · CVaR isolates the expensive tail"
         subtitle={
@@ -1396,6 +1463,15 @@ export function SolverPage() {
         )}
       </Section>
 
+      </motion.div>
+      )}
+
+      {traceView === "method" && (
+      <motion.div
+        className="trace-view-content"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
       <Section
         title="6 · Numerical objective"
         subtitle="The solver minimizes expected expenditure plus the selected price of tail risk"
@@ -1413,11 +1489,67 @@ export function SolverPage() {
           </div>
         </div>
       </Section>
+      </motion.div>
+      )}
 
-      <Section
-        title="7 · HiGHS optimality certificate"
-        subtitle="Branch-and-Bound is reported from the real solve, without a fabricated teaching tree"
+      {traceView === "method" && (
+      <motion.div
+        className="trace-view-content"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
       >
+      <Section
+        title="7 · HiGHS method and complete solver trace"
+        subtitle="The mathematical algorithm, every solve phase, and the telemetry actually exposed by HiGHS"
+      >
+        <div className="solver-method-card">
+          <div>
+            <span className="eyebrow">METHOD USED BY THE SOLVER</span>
+            <h3>{solver.method.name} {solver.method.version ? `v${solver.method.version}` : ""}</h3>
+            <p>{solver.method.algorithm}. The LP engine and presolve strategy are selected automatically by HiGHS.</p>
+          </div>
+          <div className="solver-settings">
+            <span>{solver.method.problem_class}</span>
+            <span>{solver.method.threads} thread</span>
+            <span>seed {solver.method.random_seed}</span>
+            <span>relative gap target {solver.method.relative_gap_tolerance}</span>
+            <span>absolute gap target {solver.method.absolute_gap_tolerance.toExponential(0)}</span>
+            <span>MIP tolerance {solver.method.mip_feasibility_tolerance.toExponential(0)}</span>
+          </div>
+          <div className="solver-math-flow">
+            <MathBlock math={String.raw`\text{MILP}\;\longrightarrow\;\text{presolve}\;\longrightarrow\;\min\{c^\top z:Az\le b,\ 0\le x\le1\}`} />
+            <ArrowRight aria-hidden="true" />
+            <MathBlock math={String.raw`LB\le f^*\le UB,\qquad \operatorname{gap}=\frac{|UB-LB|}{\max(1,|UB|)}`} />
+          </div>
+        </div>
+
+        <div className="solver-stage-list" aria-label="Complete HiGHS solve stages">
+          {solver.stages.map((stage) => (
+            <article key={stage.step}>
+              <div className="solver-stage-number">{String(stage.step).padStart(2, "0")}</div>
+              <div>
+                <div className="solver-stage-heading">
+                  <h3>{stage.label}</h3>
+                  <Badge tone={stage.observed ? "green" : "amber"}>
+                    {stage.observed ? "MEASURED" : "INTERNAL"} · {stage.status.toUpperCase()}
+                  </Badge>
+                </div>
+                <code>{stage.mathematics}</code>
+                <p>{stage.output}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <div className="solver-telemetry">
+          <div><span>Simplex iterations</span><b>{solver.telemetry.simplex_iteration_count ?? "—"}</b></div>
+          <div><span>IPM iterations</span><b>{solver.telemetry.ipm_iteration_count ?? "—"}</b></div>
+          <div><span>Max primal infeasibility</span><b>{solver.telemetry.max_primal_infeasibility == null ? "—" : solver.telemetry.max_primal_infeasibility.toExponential(2)}</b></div>
+          <div><span>Max dual infeasibility</span><b>{solver.telemetry.max_dual_infeasibility == null ? "—" : solver.telemetry.max_dual_infeasibility.toExponential(2)}</b></div>
+          <div><span>Max integrality violation</span><b>{solver.telemetry.max_integrality_violation == null ? "—" : solver.telemetry.max_integrality_violation.toExponential(2)}</b></div>
+          <div><span>Independent audit residual</span><b>{solver.telemetry.objective_audit_residual_eth.toExponential(2)} ETH</b></div>
+        </div>
+
         <div className="certificate-live" id="trace-7">
           <div><span>Status</span><b>{solver.status}</b></div>
           <div><span>Incumbent</span><b>{eth(objective.objective_value_eth)} ETH</b></div>
@@ -1433,11 +1565,25 @@ export function SolverPage() {
               ? `HiGHS explored ${solver.node_count} Branch-and-Bound nodes before the incumbent and global lower bound met at the reported tolerance.`
               : "The solver returned an optimal certificate, but this runtime did not expose a node count."}
         </p>
+        <p className="formula-caption">
+          “Internal” means the phase is part of the documented HiGHS MIP method,
+          while this highspy response does not expose its individual reductions,
+          cuts or heuristic events. No synthetic branch log is displayed.
+        </p>
         <MathBlock
           math={String.raw`LB=${solver.objective_bound_eth == null ? "\text{not exposed}" : solver.objective_bound_eth.toFixed(9)},\qquad UB=${objective.objective_value_eth.toFixed(9)},\qquad gap=${solver.optimality_gap == null ? "\text{not exposed}" : solver.optimality_gap.toExponential(2)}`}
         />
       </Section>
 
+      </motion.div>
+      )}
+
+      {traceView === "outputs" && (
+      <motion.div
+        className="trace-view-content"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
       <Section
         title="8 · Optimal execution schedule"
         subtitle={`${trace.solution.assignment_count} transactions assigned once · ${trace.solution.changed_vs_mean_price} changed versus mean-price`}
@@ -1457,6 +1603,8 @@ export function SolverPage() {
           </Link>
         </div>
       </Section>
+      </motion.div>
+      )}
     </>
   );
 }

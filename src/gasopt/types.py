@@ -91,6 +91,12 @@ class OptimizationResult:
     objective_bound_eth: float | None
     optimality_gap: float | None
     node_count: int | None = None
+    highs_version: str | None = None
+    simplex_iteration_count: int | None = None
+    ipm_iteration_count: int | None = None
+    max_primal_infeasibility: float | None = None
+    max_dual_infeasibility: float | None = None
+    max_integrality_violation: float | None = None
 
     @property
     def gas_cost_eth(self) -> float:

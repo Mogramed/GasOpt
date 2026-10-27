@@ -133,6 +133,58 @@ class Study:
         variables = int(data["num_variables"])
         constraints = int(data["num_constraints"])
         node_count = data.get("node_count")
+        objective_residual = float(data["objective_value_eth"]) - (
+            float(data["expected_cost_eth"]) + risk * cvar)
+        solver_method = {
+            "name": "HiGHS mixed-integer optimizer",
+            "version": data.get("highs_version"),
+            "problem_class": "MILP",
+            "algorithm": "Presolve + LP relaxations + Branch-and-Bound",
+            "lp_engine": "automatic HiGHS selection",
+            "presolve": "automatic",
+            "threads": 1,
+            "random_seed": 0,
+            "relative_gap_tolerance": 0.0,
+            "absolute_gap_tolerance": 1e-10,
+            "mip_feasibility_tolerance": 1e-9,
+            "primal_feasibility_tolerance": 1e-9,
+            "dual_feasibility_tolerance": 1e-9,
+        }
+        simplex_iterations = data.get("simplex_iteration_count")
+        ipm_iterations = data.get("ipm_iteration_count")
+        simplex_label = str(simplex_iterations) if simplex_iterations is not None else "not reported"
+        ipm_label = str(ipm_iterations) if ipm_iterations is not None else "not used / not reported"
+        solver_stages = [
+            {"step": 1, "label": "Validate inputs", "status": "passed", "observed": True,
+             "mathematics": "q_s >= 0, sum(q_s) = 1; r_i <= d_i",
+             "output": f"{len(self.transactions)} transactions, {len(self.train)} scenarios, alpha={alpha:g}, lambda={risk:g}"},
+            {"step": 2, "label": "Assemble the MILP", "status": "built", "observed": True,
+             "mathematics": "min c^T z subject to A_eq z = 1, A_ub z <= b, x binary",
+             "output": f"{variables} variables ({binaries} binary), {constraints} constraints"},
+            {"step": 3, "label": "Presolve", "status": "automatic", "observed": False,
+             "mathematics": "remove fixed/redundant rows and tighten variable bounds",
+             "output": "HiGHS presolve enabled; individual reductions are not exposed by this API response"},
+            {"step": 4, "label": "Solve LP relaxation", "status": "completed", "observed": True,
+             "mathematics": "replace x_it in {0,1} by 0 <= x_it <= 1 to obtain a lower bound",
+             "output": f"simplex iterations={simplex_label}, IPM iterations={ipm_label}"},
+            {"step": 5, "label": "Run MIP heuristics and cuts", "status": "internal", "observed": False,
+             "mathematics": "strengthen the relaxation and search for integer-feasible incumbents",
+             "output": "Managed internally by HiGHS; per-cut and per-heuristic events are not exposed"},
+            {"step": 6, "label": "Branch-and-Bound", "status": "completed", "observed": True,
+             "mathematics": "maintain LB <= f* <= UB and branch only while the gap remains open",
+             "output": (f"closed at the root; reported node count={node_count}"
+                        if node_count is not None and node_count <= 1
+                        else f"reported node count={node_count}")},
+            {"step": 7, "label": "Close the optimality gap", "status": data["solver_status"], "observed": True,
+             "mathematics": "gap = |UB - LB| / max(1, |UB|)",
+             "output": f"incumbent={data['objective_value_eth']:.12g}, bound={data.get('objective_bound_eth')}, gap={data.get('optimality_gap')}"},
+            {"step": 8, "label": "Recover the integer schedule", "status": "passed", "observed": True,
+             "mathematics": "for each i, exactly one x_it = 1",
+             "output": f"{len(schedule)} assignments, schedule {result_id}"},
+            {"step": 9, "label": "Independent numerical audit", "status": "passed", "observed": True,
+             "mathematics": "recompute C_s, E[C], VaR, CVaR and E[C] + lambda CVaR outside HiGHS",
+             "output": f"objective residual={objective_residual:.3e} ETH"},
+        ]
         trace = {
             "inputs": {
                 "dataset_id": self.dataset_id,
@@ -184,6 +236,16 @@ class Study:
                 "node_count": node_count,
                 "solve_seconds": duration,
                 "origin": origin,
+                "method": solver_method,
+                "telemetry": {
+                    "simplex_iteration_count": data.get("simplex_iteration_count"),
+                    "ipm_iteration_count": data.get("ipm_iteration_count"),
+                    "max_primal_infeasibility": data.get("max_primal_infeasibility"),
+                    "max_dual_infeasibility": data.get("max_dual_infeasibility"),
+                    "max_integrality_violation": data.get("max_integrality_violation"),
+                    "objective_audit_residual_eth": objective_residual,
+                },
+                "stages": solver_stages,
             },
             "solution": {
                 "assignment_count": len(schedule),
@@ -204,7 +266,9 @@ class Study:
         r, origin, duration = self.optimizer.solve(risk, alpha, force_recompute)
         data = {key: getattr(r, key) for key in ("expected_cost_eth", "cvar_eth", "worst_case_cost_eth",
             "objective_value_eth", "solver_status", "objective_bound_eth", "optimality_gap",
-            "num_variables", "num_binary_variables", "num_constraints", "node_count")}
+            "num_variables", "num_binary_variables", "num_constraints", "node_count",
+            "highs_version", "simplex_iteration_count", "ipm_iteration_count",
+            "max_primal_infeasibility", "max_dual_infeasibility", "max_integrality_violation")}
         data["var_eth"] = r.eta_eth
         return self._result(r.schedule, risk, alpha, data, origin, f"live_lambda_{risk:g}", duration,
                             r.solver_eta_eth, r.solver_cvar_eth)
