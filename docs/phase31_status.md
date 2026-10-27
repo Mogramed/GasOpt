@@ -67,6 +67,11 @@ scenario costs, derives the empirical CVaR, substitutes the complete objective,
 and ends with the schedule and HiGHS certificate. If HiGHS closes the problem at
 the root node, the page says so directly and does not invent branches.
 
+The transaction decision walkthrough is interactive: the presenter chooses one
+of the 30 real transactions and reveals six mathematical steps. All admissible
+slots are compared by moving that transaction only, holding the other 29 fixed,
+and recomputing the 365 portfolio paths and the complete objective.
+
 ## 8. Tests added
 
 Frontend tests cover the complete objective/constraints, dynamic dimensions,

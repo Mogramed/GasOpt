@@ -29,6 +29,10 @@ class CalculatorRequest(RequestModel):
     day: str
     slot: StrictInt
 
+class DecisionTraceRequest(ScheduleRequest):
+    transaction_id: str
+    lambda_risk: Annotated[float, Field(ge=0, strict=True)] = 0
+
 class CostPoint(BaseModel):
     date: str
     cost_eth: float

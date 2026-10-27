@@ -116,6 +116,12 @@ for (const width of [1920, 1280, 390]) {
     ).toBeVisible();
     await expect(page.locator(".certificate-live")).toContainText("Global bound");
     await expect(page.locator(".trace-final")).toBeVisible();
+    await page.getByLabel("Transaction to explain").selectOption("treasury_29");
+    await page.getByRole("button", { name: "Build the real walkthrough" }).click();
+    for (let step = 2; step <= 6; step++) {
+      await page.getByRole("button", { name: new RegExp(`Reveal step ${step}`) }).click();
+    }
+    await expect(page.getByRole("table", { name: "Transaction slot objective comparison" })).toBeVisible();
     await expect(page.locator("main > div").first()).toHaveCSS("opacity", "1");
     expect(
       await page.evaluate(

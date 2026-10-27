@@ -30,6 +30,15 @@ test('offline study → live solve → comparison → educational views → froz
  await expect(page.getByRole('heading',{name:'5 · CVaR isolates the expensive tail'})).toBeVisible();
  await expect(page.getByRole('table',{name:'CVaR tail scenarios'})).toBeVisible();
  await expect(page.getByText(/certified this optimum at the root node/i)).toBeVisible();
+ await page.getByLabel('Transaction to explain').selectOption('treasury_29');
+ await page.getByRole('button',{name:'Build the real walkthrough'}).click();
+ await expect(page.getByRole('heading',{name:/treasury_29 enters the MILP/i})).toBeVisible();
+ for(let step=2;step<=6;step++) await page.getByRole('button',{name:new RegExp(`Reveal step ${step}`)}).click();
+ await expect(page.getByRole('table',{name:'Transaction slot objective comparison'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:/survives every one-transaction alternative/i})).toBeVisible();
+ await page.screenshot({path:'../output/playwright/11-transaction-walkthrough.png',fullPage:true});
+ await page.locator('.raw-decision-output summary').click();
+ await expect(page.locator('.raw-decision-output')).toContainText('scenario_outputs');
  await page.getByRole('link',{name:'Return to calculator'}).click();
  await page.getByRole('button',{name:'Compare schedules',exact:true}).click();
  await expect(page.getByTestId('comparison-summary')).toContainText('11');

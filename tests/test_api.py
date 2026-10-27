@@ -98,6 +98,42 @@ def test_lambda_zero_trace_marks_cvar_as_post_solve(client):
     assert live.calculation_trace.model['continuous_variables'] == 0
     assert live.calculation_trace.objective['risk_penalty_eth'] == 0
 
+
+def test_transaction_decision_trace_recomputes_real_counterfactuals(client, study):
+    live = client.post('/api/v1/optimization/solve', json={
+        'lambda_risk': .05, 'alpha': .95, 'force_recompute': True}).json()
+    tx = next(item for item in study.transactions if item.deadline > item.release_slot)
+    original = live['schedule'].copy()
+    response = client.post('/api/v1/analysis/decision-trace', json={
+        'schedule': original, 'transaction_id': tx.id,
+        'lambda_risk': .05, 'alpha': .95})
+    assert response.status_code == 200, response.text
+    trace = response.json()
+    assert live['schedule'] == original
+    assert trace['transaction']['transaction_id'] == tx.id
+    assert trace['transaction']['selected_slot'] == original[tx.id]
+    assert len(trace['slot_outputs']) == tx.deadline - tx.release_slot + 1
+    assert len(trace['scenario_outputs']) == 365
+    selected = trace['selected_output']
+    assert selected['portfolio_expected_cost_eth'] == pytest.approx(live['expected_cost_eth'])
+    assert selected['portfolio_cvar_eth'] == pytest.approx(live['cvar_eth'])
+    assert selected['portfolio_objective_eth'] == pytest.approx(live['objective_value_eth'])
+    assert trace['optimality_check']['selected_is_best_one_move'] is True
+    for row in trace['slot_outputs']:
+        assert row['transaction_expected_cost_eth'] == pytest.approx(
+            1e-9 * tx.gas_used * study.means[row['slot'] - 1])
+        assert row['portfolio_objective_eth'] == pytest.approx(
+            row['portfolio_expected_cost_eth'] + .05 * row['portfolio_cvar_eth'])
+        assert row['delta_objective_eth'] == pytest.approx(
+            row['portfolio_objective_eth'] - selected['portfolio_objective_eth'])
+
+
+def test_transaction_decision_trace_rejects_unknown_transaction(client, study):
+    response = client.post('/api/v1/analysis/decision-trace', json={
+        'schedule': study.schedules['mean_price'], 'transaction_id': 'missing',
+        'lambda_risk': 0.0, 'alpha': .95})
+    assert response.status_code == 422
+
 def test_train_only_even_if_test_prices_change(client,study,monkeypatch):
     import gasopt.api.optimization as module
     original=module.solve_stochastic

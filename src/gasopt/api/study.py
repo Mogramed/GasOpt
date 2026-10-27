@@ -258,6 +258,108 @@ class Study:
         return {"gas_used": tx.gas_used, "gas_price_gwei": scenario.prices_gwei[slot-1],
                 "conversion": 1e-9, "cost_eth": cost, "day": day, "slot": slot}
 
+    def decision_trace(self, schedule, transaction_id, risk, alpha):
+        """Explain one decision with exact one-slot counterfactual portfolio metrics.
+
+        The other transactions remain fixed. This gives an interpretable local
+        comparison without pretending that portfolio CVaR is transaction-additive.
+        """
+        tx = next((item for item in self.transactions if item.id == transaction_id), None)
+        if tx is None:
+            raise ValueError("Choose a known transaction.")
+        base_costs = scenario_costs_eth(self.transactions, self.train, schedule)
+        selected_slot = schedule[tx.id]
+        allowed_slots = list(range(tx.release_slot, tx.deadline + 1))
+        if selected_slot not in allowed_slots:
+            raise ValueError("The selected schedule violates the transaction window.")
+
+        rows = []
+        costs_by_slot = {}
+        for slot in allowed_slots:
+            candidate = schedule.copy()
+            candidate[tx.id] = slot
+            costs = scenario_costs_eth(self.transactions, self.train, candidate)
+            costs_by_slot[slot] = costs
+            metrics = cost_summary(list(costs.values()), alpha)
+            tx_expected = 1e-9 * tx.gas_used * self.means[slot - 1]
+            rows.append({
+                "slot": slot,
+                "utc_range": utc_range(slot),
+                "selected": slot == selected_slot,
+                "mean_gas_price_gwei": self.means[slot - 1],
+                "transaction_expected_cost_eth": tx_expected,
+                "portfolio_expected_cost_eth": metrics["mean_cost_eth"],
+                "portfolio_var_eth": metrics["var_eth"],
+                "portfolio_cvar_eth": metrics["cvar_eth"],
+                "portfolio_worst_cost_eth": metrics["max_cost_eth"],
+                "portfolio_objective_eth": metrics["mean_cost_eth"] + risk * metrics["cvar_eth"],
+            })
+
+        selected = next(row for row in rows if row["selected"])
+        for row in rows:
+            row["delta_objective_eth"] = row["portfolio_objective_eth"] - selected["portfolio_objective_eth"]
+        ranked = sorted(rows, key=lambda row: (row["portfolio_objective_eth"], row["slot"]))
+        for rank, row in enumerate(ranked, 1):
+            row["objective_rank"] = rank
+        alternatives = [row for row in ranked if not row["selected"]]
+        best_alternative = alternatives[0] if alternatives else None
+
+        comparison_slot = best_alternative["slot"] if best_alternative else selected_slot
+        comparison_costs = costs_by_slot[comparison_slot]
+        selected_points = {point["date"]: point for point in cost_points(base_costs, alpha)}
+        alternative_points = {point["date"]: point for point in cost_points(comparison_costs, alpha)}
+        scenario_outputs = [{
+            "date": scenario.id,
+            "selected_cost_eth": base_costs[scenario.id],
+            "alternative_cost_eth": comparison_costs[scenario.id],
+            "difference_eth": comparison_costs[scenario.id] - base_costs[scenario.id],
+            "selected_tail_mass": selected_points[scenario.id]["tail_mass"],
+            "alternative_tail_mass": alternative_points[scenario.id]["tail_mass"],
+        } for scenario in self.train]
+        worked = max(scenario_outputs, key=lambda row: abs(row["difference_eth"]))
+        worked_scenario = next(item for item in self.train if item.id == worked["date"])
+        selected_price = worked_scenario.prices_gwei[selected_slot - 1]
+        alternative_price = worked_scenario.prices_gwei[comparison_slot - 1]
+
+        return {
+            "transaction": {
+                "transaction_id": tx.id,
+                "gas_used": tx.gas_used,
+                "priority_class": tx.priority_class,
+                "release_slot": tx.release_slot,
+                "deadline_slot": tx.deadline,
+                "allowed_slots": allowed_slots,
+                "selected_slot": selected_slot,
+            },
+            "settings": {
+                "lambda_risk": risk,
+                "alpha": alpha,
+                "train_scenarios": len(self.train),
+                "fixed_other_transactions": len(self.transactions) - 1,
+            },
+            "slot_outputs": sorted(rows, key=lambda row: row["slot"]),
+            "selected_output": selected,
+            "best_alternative": best_alternative,
+            "worked_scenario": {
+                **worked,
+                "selected_slot": selected_slot,
+                "alternative_slot": comparison_slot,
+                "selected_price_gwei": selected_price,
+                "alternative_price_gwei": alternative_price,
+                "selected_transaction_cost_eth": 1e-9 * tx.gas_used * selected_price,
+                "alternative_transaction_cost_eth": 1e-9 * tx.gas_used * alternative_price,
+            },
+            "scenario_outputs": scenario_outputs,
+            "optimality_check": {
+                "selected_is_best_one_move": all(
+                    row["delta_objective_eth"] >= -1e-10 for row in rows),
+                "smallest_alternative_delta_eth": (
+                    best_alternative["delta_objective_eth"] if best_alternative else None),
+                "scope": "One-transaction counterfactual; the HiGHS certificate establishes global optimality.",
+                "cvar_is_joint": True,
+            },
+        }
+
     def sensitivity(self):
         rows = records(self.train_table.loc[self.train_table.strategy.str.startswith('cvar_')])
         for row in rows:

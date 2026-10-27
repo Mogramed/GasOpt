@@ -19,7 +19,8 @@ The Phase 1 validation remains available below, unchanged in its numerical setup
 
 GasOps wraps the existing `gasopt` scientific package with FastAPI and a React
 research workspace: live TRAIN optimization, schedule comparison, data and
-scenario explorers, progressive mathematics, CVaR and frozen TEST evaluation.
+scenario explorers, progressive mathematics, an interactive real-transaction
+decision walkthrough, CVaR and frozen TEST evaluation.
 The scientific models and Phase 2 numerical artifacts remain unchanged.
 
 ```powershell

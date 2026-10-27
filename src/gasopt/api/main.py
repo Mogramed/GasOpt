@@ -9,7 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from gasopt.api.study import Study
 from gasopt.api.schemas import (SolveRequest, SolveResponse, ScheduleRequest, ComparisonRequest,
-                               ScenarioRequest, CalculatorRequest, EvaluationResponse)
+                               ScenarioRequest, CalculatorRequest, DecisionTraceRequest,
+                               EvaluationResponse)
 from gasopt.api.serialization import records
 
 def create_app(root: Path | None = None, study: Study | None = None):
@@ -87,6 +88,10 @@ def create_app(root: Path | None = None, study: Study | None = None):
     @app.post('/api/v1/analysis/calculator')
     def calculator(body: CalculatorRequest, request: Request):
         return snapshot(request).calculator(body.transaction_id,body.day,body.slot)
+    @app.post('/api/v1/analysis/decision-trace')
+    def decision_trace(body: DecisionTraceRequest, request: Request):
+        return snapshot(request).decision_trace(
+            body.schedule, body.transaction_id, body.lambda_risk, body.alpha)
     return app
 
 app = create_app()

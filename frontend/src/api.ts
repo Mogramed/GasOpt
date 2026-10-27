@@ -184,6 +184,68 @@ export type Compare = {
     difference_eth: number;
   }[];
 };
+export type SlotDecisionOutput = {
+  slot: number;
+  utc_range: string;
+  selected: boolean;
+  mean_gas_price_gwei: number;
+  transaction_expected_cost_eth: number;
+  portfolio_expected_cost_eth: number;
+  portfolio_var_eth: number;
+  portfolio_cvar_eth: number;
+  portfolio_worst_cost_eth: number;
+  portfolio_objective_eth: number;
+  delta_objective_eth: number;
+  objective_rank: number;
+};
+export type DecisionTrace = {
+  transaction: {
+    transaction_id: string;
+    gas_used: number;
+    priority_class: string;
+    release_slot: number;
+    deadline_slot: number;
+    allowed_slots: number[];
+    selected_slot: number;
+  };
+  settings: {
+    lambda_risk: number;
+    alpha: number;
+    train_scenarios: number;
+    fixed_other_transactions: number;
+  };
+  slot_outputs: SlotDecisionOutput[];
+  selected_output: SlotDecisionOutput;
+  best_alternative: SlotDecisionOutput | null;
+  worked_scenario: {
+    date: string;
+    selected_cost_eth: number;
+    alternative_cost_eth: number;
+    difference_eth: number;
+    selected_tail_mass: number;
+    alternative_tail_mass: number;
+    selected_slot: number;
+    alternative_slot: number;
+    selected_price_gwei: number;
+    alternative_price_gwei: number;
+    selected_transaction_cost_eth: number;
+    alternative_transaction_cost_eth: number;
+  };
+  scenario_outputs: {
+    date: string;
+    selected_cost_eth: number;
+    alternative_cost_eth: number;
+    difference_eth: number;
+    selected_tail_mass: number;
+    alternative_tail_mass: number;
+  }[];
+  optimality_check: {
+    selected_is_best_one_move: boolean;
+    smallest_alternative_delta_eth: number | null;
+    scope: string;
+    cvar_is_joint: boolean;
+  };
+};
 export type HeatData = {
   split: string;
   dates: string[];

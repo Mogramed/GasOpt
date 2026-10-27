@@ -121,6 +121,7 @@ risk settings and unknown request fields. No evaluation endpoint invokes a solve
 | POST | `analysis/compare` | Full TRAIN schedules A/B, changed rows and cost differences |
 | POST | `analysis/scenario` | One historical day, explicit TRAIN or TEST context |
 | POST | `analysis/calculator` | Actual transaction / TRAIN day / feasible slot cost |
+| POST | `analysis/decision-trace` | One transaction, every feasible-slot counterfactual on TRAIN |
 
 Solve responses include schedule, binary assignments, cost distribution, objective,
 VaR/CVaR, worst cost, status, bound, gap, node count, dimensions, elapsed solve time,
@@ -165,6 +166,12 @@ inspector and equation reveals and respects reduced-motion settings.
 The calculation trace uses only the latest user-triggered solve. It reports the
 actual admissible transaction-slot pairs, all 365 scenario costs, the empirical
 CVaR construction, the substituted objective and the real HiGHS certificate.
+Its transaction walkthrough lets the user select any workload row and reveal six
+steps progressively. For every feasible slot, the API keeps the other 29
+transactions fixed and recomputes expected cost, VaR, CVaR, worst cost and the
+full objective across all 365 TRAIN scenarios. The UI explicitly treats CVaR as
+a joint portfolio measure; the one-transaction comparison complements, but does
+not replace, the global HiGHS optimality certificate.
 
 ## Docker and errors
 

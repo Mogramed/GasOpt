@@ -3,6 +3,19 @@ import { Link } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
   ArrowRight,
   Check,
   ChevronLeft,
@@ -10,7 +23,16 @@ import {
   Copy,
 } from "lucide-react";
 import { useWorkspace } from "../App";
-import { api, eth, num, price, useApi, type Tx } from "../api";
+import {
+  api,
+  eth,
+  num,
+  price,
+  useApi,
+  type DecisionTrace,
+  type Result,
+  type Tx,
+} from "../api";
 import {
   Badge,
   ErrorState,
@@ -829,6 +851,327 @@ function ScenarioPicker({
   );
 }
 
+const decisionSteps = [
+  "Transaction inputs",
+  "Admissible slots",
+  "One real scenario",
+  "365 counterfactuals",
+  "Objective comparison",
+  "Decision explained",
+] as const;
+
+function TransactionDecisionLab({
+  calculation,
+  workload,
+}: {
+  calculation: Result;
+  workload: Tx[];
+}) {
+  const initial =
+    workload.find((tx) => tx.allowed_slots.length >= 4)?.transaction_id ??
+    workload[0].transaction_id;
+  const [transactionId, setTransactionId] = useState(initial);
+  const [revealed, setRevealed] = useState(0);
+  const decision = useMutation({
+    mutationFn: () =>
+      api<DecisionTrace>("analysis/decision-trace", {
+        schedule: calculation.schedule,
+        transaction_id: transactionId,
+        lambda_risk: calculation.lambda_risk,
+        alpha: calculation.alpha,
+      }),
+    onSuccess: () => setRevealed(1),
+  });
+  const data = decision.data;
+  const chartSlots =
+    data?.slot_outputs.map((row) => ({
+      ...row,
+      label: `S${row.slot}`,
+      objective_delta_micro_eth: row.delta_objective_eth * 1e6,
+    })) ?? [];
+  const selected = data?.selected_output;
+  const alternative = data?.best_alternative;
+  const worked = data?.worked_scenario;
+
+  return (
+    <Section
+      title="3 · Explain one real transaction decision"
+      subtitle="Choose a transaction, then reveal the exact calculation one step at a time"
+    >
+      <div className="decision-lab" id="trace-3">
+        <div className="decision-controls">
+          <label>
+            Transaction to explain
+            <select
+              aria-label="Transaction to explain"
+              value={transactionId}
+              onChange={(event) => {
+                setTransactionId(event.target.value);
+                setRevealed(0);
+                decision.reset();
+              }}
+            >
+              {workload.map((tx) => (
+                <option key={tx.transaction_id} value={tx.transaction_id}>
+                  {tx.transaction_id} · {tx.priority_class} · {tx.release_slot}–{tx.deadline_slot}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="button primary"
+            disabled={decision.isPending}
+            onClick={() => {
+              setRevealed(0);
+              decision.mutate();
+            }}
+          >
+            {decision.isPending ? "Calculating 365 scenarios…" : "Build the real walkthrough"}
+          </button>
+          <p>
+            The selected slot comes from the current HiGHS solution. Every
+            alternative below moves only this transaction and recomputes the
+            complete portfolio across TRAIN.
+          </p>
+        </div>
+
+        {decision.error && <ErrorState error={decision.error} />}
+        {decision.isPending && (
+          <Loading text="Recomputing every feasible slot against all 365 TRAIN scenarios…" />
+        )}
+
+        {data && (
+          <>
+            <nav className="decision-stepper" aria-label="Transaction explanation steps">
+              {decisionSteps.map((label, index) => (
+                <button
+                  key={label}
+                  disabled={index + 1 > revealed}
+                  aria-current={index + 1 === revealed ? "step" : undefined}
+                  onClick={() => setRevealed(index + 1)}
+                >
+                  <span>{String(index + 1).padStart(2, "0")}</span>
+                  {label}
+                </button>
+              ))}
+            </nav>
+
+            {revealed >= 1 && (
+              <motion.article
+                className="decision-step"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <div className="step-number">01</div>
+                <div>
+                  <span className="eyebrow">REAL INPUT</span>
+                  <h3>{data.transaction.transaction_id} enters the MILP</h3>
+                  <p>
+                    This {data.transaction.priority_class.toLowerCase()} transaction uses {num(data.transaction.gas_used)} gas.
+                    Its business window allows slots {data.transaction.release_slot} through {data.transaction.deadline_slot}.
+                  </p>
+                  <MathBlock
+                    math={String.raw`\sum_{t=${data.transaction.release_slot}}^{${data.transaction.deadline_slot}}x_{${data.transaction.transaction_id.replace("treasury_", "")},t}=1,\qquad x_{it}\in\{0,1\}`}
+                  />
+                  <div className="decision-slot-strip" aria-label="Admissible transaction slots">
+                    {Array.from({ length: 12 }, (_, index) => index + 1).map((slot) => {
+                      const allowed = data.transaction.allowed_slots.includes(slot);
+                      const chosen = slot === data.transaction.selected_slot;
+                      return (
+                        <div className={`${allowed ? "allowed" : "blocked"} ${chosen ? "chosen" : ""}`} key={slot}>
+                          <span>{String(slot).padStart(2, "0")}</span>
+                          <b>{chosen ? "x = 1" : allowed ? "x = 0" : "—"}</b>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </motion.article>
+            )}
+
+            {revealed >= 2 && (
+              <motion.article className="decision-step" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+                <div className="step-number">02</div>
+                <div>
+                  <span className="eyebrow">EXPECTED SLOT ECONOMICS</span>
+                  <h3>Each admissible slot receives a real ETH coefficient</h3>
+                  <MathBlock math={String.raw`\mathbb E[c_{it}]=10^{-9}g_i\bar p_t`} />
+                  <div className="decision-chart" aria-label="Expected transaction cost by slot">
+                    <ResponsiveContainer>
+                      <BarChart data={chartSlots} margin={{ top: 18, right: 20, left: 24, bottom: 12 }}>
+                        <CartesianGrid stroke="#263042" vertical={false} />
+                        <XAxis dataKey="label" />
+                        <YAxis tickFormatter={(value) => Number(value).toExponential(1)} width={72} />
+                        <Tooltip
+                          content={({ active, payload }) =>
+                            active && payload?.[0] ? (
+                              <div className="chart-tooltip">
+                                <b>Slot {payload[0].payload.slot}</b>
+                                <p>{price(payload[0].payload.mean_gas_price_gwei)} mean gwei/gas</p>
+                                <p>{eth(payload[0].payload.transaction_expected_cost_eth)} ETH</p>
+                              </div>
+                            ) : null
+                          }
+                        />
+                        <Bar dataKey="transaction_expected_cost_eth" name="Expected transaction cost">
+                          {chartSlots.map((row) => (
+                            <Cell key={row.slot} fill={row.selected ? "#76c9a8" : "#a990d5"} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <p className="formula-caption">
+                    Green is the HiGHS assignment. For λ = 0, these expected coefficients determine the choice directly.
+                    For λ &gt; 0, the portfolio tail must also be recomputed.
+                  </p>
+                </div>
+              </motion.article>
+            )}
+
+            {revealed >= 3 && worked && (
+              <motion.article className="decision-step" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+                <div className="step-number">03</div>
+                <div>
+                  <span className="eyebrow">OBSERVED TRAIN DAY · {worked.date}</span>
+                  <h3>One scenario shows the coefficient calculation in full</h3>
+                  <div className="worked-comparison">
+                    <div className="selected">
+                      <span>SELECTED SLOT {worked.selected_slot}</span>
+                      <MathBlock math={String.raw`10^{-9}\times ${data.transaction.gas_used}\times ${worked.selected_price_gwei.toFixed(4)}=${worked.selected_transaction_cost_eth.toFixed(9)}\ \mathrm{ETH}`} />
+                    </div>
+                    <ArrowRight aria-hidden="true" />
+                    <div>
+                      <span>ALTERNATIVE SLOT {worked.alternative_slot}</span>
+                      <MathBlock math={String.raw`10^{-9}\times ${data.transaction.gas_used}\times ${worked.alternative_price_gwei.toFixed(4)}=${worked.alternative_transaction_cost_eth.toFixed(9)}\ \mathrm{ETH}`} />
+                    </div>
+                  </div>
+                  <p>
+                    On this historical day, moving the transaction changes the complete portfolio cost by {eth(worked.difference_eth)} ETH.
+                    The optimizer does not choose from one day; it evaluates this move on all 365 days.
+                  </p>
+                </div>
+              </motion.article>
+            )}
+
+            {revealed >= 4 && (
+              <motion.article className="decision-step" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+                <div className="step-number">04</div>
+                <div>
+                  <span className="eyebrow">COUNTERFACTUAL ENGINE</span>
+                  <h3>Move one transaction, hold the other {data.settings.fixed_other_transactions} fixed</h3>
+                  <div className="counterfactual-flow">
+                    <div><span>01</span><b>Copy the solved schedule</b><small>x*</small></div>
+                    <ArrowRight aria-hidden="true" />
+                    <div><span>02</span><b>Replace one slot</b><small>xᵢt = 1</small></div>
+                    <ArrowRight aria-hidden="true" />
+                    <div><span>03</span><b>Recompute 365 costs</b><small>Cₛ(x)</small></div>
+                    <ArrowRight aria-hidden="true" />
+                    <div><span>04</span><b>Rebuild the tail</b><small>η, ξₛ, CVaR</small></div>
+                    <ArrowRight aria-hidden="true" />
+                    <div><span>05</span><b>Compare objectives</b><small>E[C] + λCVaR</small></div>
+                  </div>
+                  <div className="decision-chart scenario-lines" aria-label="Selected and alternative portfolio costs across TRAIN">
+                    <ResponsiveContainer>
+                      <LineChart data={data.scenario_outputs} margin={{ top: 18, right: 20, left: 24, bottom: 12 }}>
+                        <CartesianGrid stroke="#263042" vertical={false} />
+                        <XAxis dataKey="date" minTickGap={48} />
+                        <YAxis tickFormatter={(value) => Number(value).toFixed(3)} width={60} />
+                        <Tooltip formatter={(value) => `${eth(Number(value))} ETH`} />
+                        <Legend />
+                        <Line type="monotone" dataKey="selected_cost_eth" name={`Selected slot ${data.transaction.selected_slot}`} stroke="#76c9a8" dot={false} strokeWidth={2} />
+                        <Line type="monotone" dataKey="alternative_cost_eth" name={alternative ? `Alternative slot ${alternative.slot}` : "Same slot"} stroke="#b79bea" dot={false} strokeWidth={1.5} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <p className="formula-caption">
+                    CVaR is computed from the total portfolio paths shown here. It is a joint risk measure and is not allocated artificially to one transaction.
+                  </p>
+                </div>
+              </motion.article>
+            )}
+
+            {revealed >= 5 && selected && (
+              <motion.article className="decision-step" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+                <div className="step-number">05</div>
+                <div>
+                  <span className="eyebrow">ACTUAL OUTPUTS</span>
+                  <h3>Every feasible slot is scored with the portfolio objective</h3>
+                  <MathBlock math={String.raw`J_t=\mathbb E[C(x_{i\to t})]+${calculation.lambda_risk}\,\operatorname{CVaR}_{${calculation.alpha}}(C(x_{i\to t}))`} />
+                  <div className="decision-chart compact" aria-label="Objective difference by slot">
+                    <ResponsiveContainer>
+                      <BarChart data={chartSlots} margin={{ top: 18, right: 20, left: 24, bottom: 12 }}>
+                        <CartesianGrid stroke="#263042" vertical={false} />
+                        <XAxis dataKey="label" />
+                        <YAxis tickFormatter={(value) => `${Number(value).toFixed(2)}`} width={58} />
+                        <Tooltip formatter={(value) => `${Number(value).toFixed(4)} μETH`} />
+                        <Bar dataKey="objective_delta_micro_eth" name="Δ objective vs selected (μETH)">
+                          {chartSlots.map((row) => (
+                            <Cell key={row.slot} fill={row.selected ? "#76c9a8" : "#d6a05f"} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="table-scroll">
+                    <table aria-label="Transaction slot objective comparison">
+                      <thead><tr><th>Rank</th><th>Slot</th><th>Mean gwei</th><th>TX expected ETH</th><th>Portfolio E[C]</th><th>Portfolio CVaR</th><th>Objective</th><th>Δ vs selected</th></tr></thead>
+                      <tbody>
+                        {data.slot_outputs.map((row) => (
+                          <tr className={row.selected ? "selected-row" : ""} key={row.slot}>
+                            <td>{row.objective_rank}</td><td>{row.slot} · {row.utc_range}</td><td>{price(row.mean_gas_price_gwei)}</td>
+                            <td>{eth(row.transaction_expected_cost_eth)}</td><td>{eth(row.portfolio_expected_cost_eth)}</td>
+                            <td>{eth(row.portfolio_cvar_eth)}</td><td>{eth(row.portfolio_objective_eth)}</td>
+                            <td>{row.selected ? "SELECTED" : row.delta_objective_eth.toExponential(3) + " ETH"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </motion.article>
+            )}
+
+            {revealed >= 6 && selected && (
+              <motion.article className="decision-step decision-conclusion" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+                <div className="step-number">06</div>
+                <div>
+                  <span className="eyebrow">WHY THIS SLOT?</span>
+                  <h3>Slot {data.transaction.selected_slot} survives every one-transaction alternative</h3>
+                  <div className="decision-verdict">
+                    <div><span>Selected objective</span><b>{eth(selected.portfolio_objective_eth)} ETH</b></div>
+                    <div><span>Closest alternative</span><b>{alternative ? `Slot ${alternative.slot}` : "No alternative"}</b></div>
+                    <div><span>Extra objective</span><b>{alternative ? alternative.delta_objective_eth.toExponential(3) + " ETH" : "—"}</b></div>
+                    <div><span>One-move check</span><b>{data.optimality_check.selected_is_best_one_move ? "Passed" : "Numerical warning"}</b></div>
+                  </div>
+                  <p>
+                    {calculation.lambda_risk === 0
+                      ? "With λ = 0, minimizing the portfolio objective is exactly equivalent to choosing the lowest expected gas-price coefficient inside this transaction’s window. CVaR is reported after the solve and does not influence the slot."
+                      : `With positive λ, HiGHS balances expected cost against the portfolio’s worst ${((1 - calculation.alpha) * 100).toFixed(1)}% tail. The chosen slot therefore depends on how its 365 price observations interact with the other 29 transactions, not only on its mean price.`}
+                  </p>
+                  <p className="formula-caption">
+                    This screen checks every one-coordinate move for the chosen transaction. The incumbent, global bound and zero gap in step 7 certify the complete 140-binary solution globally.
+                  </p>
+                  <details className="raw-decision-output">
+                    <summary>Show the raw numerical output</summary>
+                    <pre>{JSON.stringify(data, null, 2)}</pre>
+                  </details>
+                </div>
+              </motion.article>
+            )}
+
+            {revealed < decisionSteps.length && (
+              <button className="button decision-next" onClick={() => setRevealed((value) => value + 1)}>
+                Reveal step {revealed + 1} · {decisionSteps[revealed]} <ArrowRight size={15} />
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    </Section>
+  );
+}
+
 export function SolverPage() {
   const { calculation, workload } = useWorkspace();
   const [allScenarios, setAllScenarios] = useState(false);
@@ -864,7 +1207,6 @@ export function SolverPage() {
   const scenarios = [...calculation.scenario_costs].sort(
     (a, b) => b.cost_eth - a.cost_eth,
   );
-  const coefficient = trace.coefficient_example;
   const risk = trace.risk;
   const objective = trace.objective;
   const solver = trace.solver;
@@ -886,7 +1228,7 @@ export function SolverPage() {
         {[
           "Inputs",
           "MILP",
-          "Coefficient",
+          "Transaction",
           "Scenarios",
           "CVaR",
           "Objective",
@@ -950,28 +1292,7 @@ export function SolverPage() {
         </p>
       </Section>
 
-      <Section
-        title="3 · One real cost coefficient"
-        subtitle={`${coefficient.transaction_id} · worst-cost TRAIN scenario ${coefficient.scenario_date} · selected slot ${coefficient.selected_slot}`}
-      >
-        <div className="coefficient-worked" id="trace-3">
-          <MathBlock math={String.raw`c_{its}=10^{-9}g_i p_{ts}`} />
-          <div>
-            <span>{num(coefficient.gas_used)} gas</span>
-            <b>×</b>
-            <span>{price(coefficient.gas_price_gwei)} gwei / gas</span>
-            <b>×</b>
-            <span>10⁻⁹ ETH / gwei</span>
-            <b>=</b>
-            <strong>{eth(coefficient.coefficient_eth)} ETH</strong>
-          </div>
-        </div>
-        <p className="formula-caption">
-          This is one transaction’s contribution. Summing the 30 selected
-          coefficients gives {eth(coefficient.portfolio_cost_eth)} ETH for this
-          complete historical scenario.
-        </p>
-      </Section>
+      <TransactionDecisionLab calculation={calculation} workload={workload} />
 
       <Section
         title="4 · The schedule generates 365 scenario costs"
